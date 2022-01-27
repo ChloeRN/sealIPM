@@ -7,7 +7,7 @@
 *.RData
 
 # RDS files
-.rds
+*.rds
 
 # PDF plots
 *.pdf
