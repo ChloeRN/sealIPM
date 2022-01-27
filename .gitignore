@@ -4,6 +4,16 @@
 
 # Session Data files
 .RData
+*.RData
+
+# RDS files
+.rds
+
+# PDF plots
+*.pdf
+
+# txt data
+*.txt
 
 # User-specific files
 .Ruserdata
