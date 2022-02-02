@@ -6,14 +6,14 @@ library(tidyverse)
 library(lubridate)
 
 ## Load posterior samples from model run
-load('212015_Seal_IPM_Test_noPeriodEff.RData')
+load('220125_Seal_IPM_noPeriodEff_Test.RData')
 out.mat <- as.matrix(testRun)
 
 ## Collate SAD posteriors in a data frame
 SAD.data <- data.frame(
   Proportion = c(out.mat[,'SAD[1]'], out.mat[,'SAD[2]'], out.mat[,'SAD[3]'], 
                  out.mat[,'SAD[4]'], out.mat[,'SAD[5]'], out.mat[,'SAD[6]'], 
-                 out.mat[,'SAD[7]'], out.mat[,'SAD[8]'], out.mat[,'SAD[9]']),
+                 out.mat[,'SAD[7]'], out.mat[,'SAD[8]']),
   AgeClass = rep(c('YOY', paste0('SubA[', 1:5, ']'), 'nMatA', 'MatA'), each = dim(out.mat)[1])
 )
 
