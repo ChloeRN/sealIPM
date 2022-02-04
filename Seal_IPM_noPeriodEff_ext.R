@@ -1,5 +1,3 @@
-library(tidyverse)
-library(lubridate)
 library(nimble)
 
 mySeed <- 0
@@ -16,7 +14,8 @@ DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest
 ## Load data
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
 mN.param.data <- readRDS('220119_mO_HoeningParameters_Seal.rds')
-
+HarvestData <- readRDS('220204_HarvestCountData.rds')
+  
 ## Assemble data and constants
 seal.data <- list(
   Mature = SealDataF_mat$Maturity, # Individual maturity status
@@ -36,7 +35,16 @@ seal.data <- list(
   estN.mean = 3242, # Mean of estimated number of seals (males and females) from 2002 aerial survey
   estN.sd = 266, # Standard deviation of estimated number of seals (males and females) from 2002 aerial survey (NOTE: reported as se, but seems to actually be sd)
 
-  mN.logmean = mN.param.data$log_mean[1], mN.logsd = mN.param.data$log_sd[1]
+  mN.logmean = mN.param.data$log_mean[1], mN.logsd = mN.param.data$log_sd[1],
+  
+  no.H = HarvestData$no.H,
+  r = HarvestData$r,
+  
+  ACaH = HarvestData$ACaH,
+  No.ACaH = HarvestData$No.ACaH.yr,
+  
+  count.Isfj = HarvestData$count.Isfj,
+  count.all = HarvestData$count.all
 )
 
 seal.constants <- list(
@@ -212,7 +220,7 @@ seal.IPM <- nimbleCode({
       D[1+a,t] <- SubA[a, t] - Surv_SubA[a+1, t+1]
     }
     
-    D[7,t] <- nMatA[t] + MatA[t] -  MatA[t+1]
+    D[Amax-1,t] <- nMatA[t] + MatA[t] -  MatA[t+1]
   
     ## Number that died due to harvest
     for(a in 1:(Amax-1)){
@@ -303,10 +311,19 @@ seal.IPM <- nimbleCode({
   # Likelihood for harvest count data #
   #-----------------------------------#
   
+  for(t in sim_Tmin:sim_Tmax){
+    no.H[t] ~ dpois((no.Htot[t]*r[t])/prop.Isfj)
+  }
+    
   
   # Likelihood for harvest age structure data #
   #-------------------------------------------#
   
+  for(t in sim_Tmin:(sim_Tmax-1)){
+    for(a in 1:(Amax-1)){
+      ACaH[a,t] ~ dpois(H[a,t]*pACaH[t])
+    }
+  }
   
   # Likelihood for maturation data #
   #--------------------------------#
@@ -375,11 +392,28 @@ seal.IPM <- nimbleCode({
   mH_YOY <- -log(S_YOY) - mN_YOY
   
   # Subadults
-  mH_SA[1:max.matA] <- -log(S_SA[1:max.matA]) - mN_SA[1:max.matA]
+  #mH_SA[1:max.matA] <- -log(S_SA[1:max.matA]) - mN_SA[1:max.matA]
+  mH_SA[1:max.matA] <- mH_MA
   
   # Adults
   mH_MA <- -log(S_MA) - mN_MA
   
+  
+  # Proportion harvested in Isfjorden area #
+  #----------------------------------------#
+  
+  prop.Isfj <- sum(count.Isfj[1:3])/sum(count.all[1:3])
+  
+  # NOTE: This could alternatively be formulated as a stochastic relationship:
+  #       e.g. count.Isfj[x] ~ dbin(prop.Isfj, count.all[x])
+  
+  
+  # Proportion of the harvest represented in ACaH data #
+  #----------------------------------------------------#
+  
+  for(t in sim_Tmin:sim_Tmax){
+    pACaH[t] <- no.ACaH[t]/no.Htot[t]
+  }
   
   #*********#
   # PRIORS  #                                                          
@@ -463,7 +497,7 @@ initFun <- function(){
     estN.2002 = rnorm(1, mean = seal.data$estN.mean, sd = seal.data$estN.sd),
     
     mN_YOY = runif(1, 0, -log(seal.data$S_YOY.fix)),
-    mN_SA = runif(1, 0, -log(seal.data$S_SA.fix[5])),
+    mN_SA = runif(seal.constants$SA_Amax, 0, -log(seal.data$S_SA.fix[5])),
     mN_MA = runif(1, 0, -log(seal.data$S_MA.fix))
   )
 }
@@ -496,6 +530,7 @@ niter <- 10
 nburnin <- 0
 nthin <- 1
 nchains <- 3
+#nchains <- 1
 
 #niter <- 100000
 #nburnin <- 30000
@@ -512,10 +547,17 @@ testRun <- nimbleMCMC(code = seal.IPM,
                       samplesAsCodaMCMC = TRUE, setSeed = mySeed)
 
 
-setwd('/data/P-Prosjekter/41201611_naturindeks_2021_2023_vitenskapelig_ansvar/Temporary')
-
+#setwd('/data/P-Prosjekter/41201611_naturindeks_2021_2023_vitenskapelig_ansvar/Temporary')
 #save(testRun, file = '220125_Seal_IPM_noPeriodEff_Test.RData')
 
-pdf('220202_IPMtest_noPeriodEff_Traces.pdf', height = 8, width = 11)
+pdf('220204_IPMtest_noPeriodEff_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
+
+
+out.mat <- as.matrix(testRun)
+
+out.mat[,'S_SA[4]']
+hist(out.mat[,'mN_SA[1]'])
+table(out.mat[,'mN_SA[1]'])
+
