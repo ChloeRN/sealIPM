@@ -41,7 +41,7 @@ seal.data <- list(
   r = HarvestData$r,
   
   ACaH = HarvestData$ACaH,
-  No.ACaH = HarvestData$No.ACaH.yr,
+  no.ACaH = HarvestData$No.ACaH.yr,
   
   count.Isfj = HarvestData$count.Isfj,
   count.all = HarvestData$count.all
@@ -174,18 +174,18 @@ seal.IPM <- nimbleCode({
   SAD[1:Amax] <- eigenV[1:Amax] / sum(eigenV[1:Amax]) # Standardized eigenvector = stable age distribution (SAD)
   
   ## Approximation of initial numbers of females per age class (deterministic)
-  YOY[estN.yr.idx] <- round(SAD[1] * estN.2002 * 0.5)
-  SubA[1:SA_Amax, estN.yr.idx] <- round(SAD[2:(SA_Amax+1)] * estN.2002 * 0.5)
-  nMatA[estN.yr.idx] <- round(SAD[(Amax-1)] * estN.2002 * 0.5)
-  MatA[estN.yr.idx] <- round(SAD[Amax] * estN.2002 * 0.5)
+  #YOY[estN.yr.idx] <- round(SAD[1] * estN.2002 * 0.5)
+  #SubA[1:SA_Amax, estN.yr.idx] <- round(SAD[2:(SA_Amax+1)] * estN.2002 * 0.5)
+  #nMatA[estN.yr.idx] <- round(SAD[(Amax-1)] * estN.2002 * 0.5)
+  #MatA[estN.yr.idx] <- round(SAD[Amax] * estN.2002 * 0.5)
   
   ## Approximation of initial numbers of females per age class (stochastic)
-  #YOY[estN.yr.idx] ~ dpois(SAD[1]*estN.2002*0.5)
-  #for(a in 1:SA_Amax){
-  #  SubA[a, estN.yr.idx] ~ dpois(SAD[a+1]*estN.2002*0.5)
-  #}
-  #nMatA[estN.yr.idx] ~ dpois(SAD[(Amax-1)]*estN.2002*0.5)
-  #MatA[estN.yr.idx] ~ dpois(SAD[Amax]*estN.2002*0.5)
+  YOY[estN.yr.idx] ~ dpois(SAD[1]*estN.2002*0.5)
+  for(a in 1:SA_Amax){
+    SubA[a, estN.yr.idx] ~ dpois(SAD[a+1]*estN.2002*0.5)
+  }
+  nMatA[estN.yr.idx] ~ dpois(SAD[(Amax-1)]*estN.2002*0.5)
+  MatA[estN.yr.idx] ~ dpois(SAD[Amax]*estN.2002*0.5)
   
 
   for(t in sim_Tmin:(sim_Tmax-1)){
@@ -287,8 +287,10 @@ seal.IPM <- nimbleCode({
   nMatA[1:(sim_Tmin-1)] <- 0
   MatA[1:(sim_Tmin-1)] <- 0
   
-  SurvSubA[1:SA_Amax, 1:sim_Tmin] <- 0
-  MatSubA[1:SA_Amax, 1:sim_Tmin] <- 0
+  SurvSubA[1:(SA_Amax+1), 1:sim_Tmin] <- 0
+  MatSubA[1:(SA_Amax+1), 1:sim_Tmin] <- 0
+  Surv_nMatA[1:sim_Tmin] <- 0
+  Surv_MatA[1:sim_Tmin] <- 0
   R_Mat[1:sim_Tmin] <- 0
   R_nMat[1:sim_Tmin] <- 0
   Ntot[1:(sim_Tmin-1)] <- 0
@@ -311,8 +313,8 @@ seal.IPM <- nimbleCode({
   # Likelihood for harvest count data #
   #-----------------------------------#
   
-  for(t in sim_Tmin:sim_Tmax){
-    no.H[t] ~ dpois((no.Htot[t]*r[t])/prop.Isfj)
+  for(t in (sim_Tmin+1):(sim_Tmax-1)){
+    no.H[t] ~ dpois((2*sum(H[1:(Amax-1),t])*r[t])/prop.Isfj)
   }
     
   
@@ -411,8 +413,10 @@ seal.IPM <- nimbleCode({
   # Proportion of the harvest represented in ACaH data #
   #----------------------------------------------------#
   
-  for(t in sim_Tmin:sim_Tmax){
-    pACaH[t] <- no.ACaH[t]/no.Htot[t]
+  pACaH[1:(sim_Tmin-1)] <- 0
+  
+  for(t in sim_Tmin:(sim_Tmax-1)){
+    pACaH[t] <- no.ACaH[t]/sum(H[1:(Amax-1),t])
   }
   
   #*********#
@@ -483,28 +487,13 @@ seal.IPM <- nimbleCode({
 ###########################
 
 ## Function for simulating initial values
-initFun <- function(){
-  list(
-    Mu.pMat = c(0, 0, runif(3, 0.3, 0.7), 1),
-    sigmaY.pMat = runif(1, 0.01, 0.1),
-    epsilonY.pMat = rep(0, seal.constants$Tmax),
-
-    pOvl = runif(1, 0.6, 0.9),
-    pPrg = runif(1, 0.8, 1),
-    
-    Mu.S_pup = runif(1, seal.constants$S_pup.lLimit, seal.constants$S_pup.uLimit),
-    
-    estN.2002 = rnorm(1, mean = seal.data$estN.mean, sd = seal.data$estN.sd),
-    
-    mN_YOY = runif(1, 0, -log(seal.data$S_YOY.fix)),
-    mN_SA = runif(seal.constants$SA_Amax, 0, -log(seal.data$S_SA.fix[5])),
-    mN_MA = runif(1, 0, -log(seal.data$S_MA.fix))
-  )
-}
+source('Seal_IPM_InitValSim.R')
 
 ## Sample initial values
-#Inits <- initFun()
-Inits <- list(initFun(), initFun(), initFun())
+#Inits <- list(initValSim(data = seal.data, constants = seal.constants))
+Inits <- list(initValSim(data = seal.data, constants = seal.constants),
+              initValSim(data = seal.data, constants = seal.constants),
+              initValSim(data = seal.data, constants = seal.constants))
 
 ############
 # TEST RUN #
@@ -526,7 +515,7 @@ params <- c('lambda_asym', 'SAD',
             )
 
 ## MCMC specs
-niter <- 10
+niter <- 2
 nburnin <- 0
 nthin <- 1
 nchains <- 3
@@ -550,14 +539,9 @@ testRun <- nimbleMCMC(code = seal.IPM,
 #setwd('/data/P-Prosjekter/41201611_naturindeks_2021_2023_vitenskapelig_ansvar/Temporary')
 #save(testRun, file = '220125_Seal_IPM_noPeriodEff_Test.RData')
 
-pdf('220204_IPMtest_noPeriodEff_Traces.pdf', height = 8, width = 11)
+pdf('220221_IPMtest_noPeriodEff_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
 
 
 out.mat <- as.matrix(testRun)
-
-out.mat[,'S_SA[4]']
-hist(out.mat[,'mN_SA[1]'])
-table(out.mat[,'mN_SA[1]'])
-
