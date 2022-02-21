@@ -163,18 +163,18 @@ seal.IPM <- nimbleCode({
   SAD[1:Amax] <- eigenV[1:Amax] / sum(eigenV[1:Amax]) # Standardized eigenvector = stable age distribution (SAD)
   
   ## Approximation of initial numbers of females per age class (deterministic)
-  YOY[estN.yr.idx] <- round(SAD[1] * estN.2002 * 0.5)
-  SubA[1:SA_Amax, estN.yr.idx] <- round(SAD[2:(SA_Amax+1)] * estN.2002 * 0.5)
-  nMatA[estN.yr.idx] <- round(SAD[(Amax-1)] * estN.2002 * 0.5)
-  MatA[estN.yr.idx] <- round(SAD[Amax] * estN.2002 * 0.5)
+  #YOY[estN.yr.idx] <- round(SAD[1] * estN.2002 * 0.5)
+  #SubA[1:SA_Amax, estN.yr.idx] <- round(SAD[2:(SA_Amax+1)] * estN.2002 * 0.5)
+  #nMatA[estN.yr.idx] <- round(SAD[(Amax-1)] * estN.2002 * 0.5)
+  #MatA[estN.yr.idx] <- round(SAD[Amax] * estN.2002 * 0.5)
   
   ## Approximation of initial numbers of females per age class (stochastic)
-  #YOY[estN.yr.idx] ~ dpois(SAD[1]*estN.2002*0.5)
-  #for(a in 1:SA_Amax){
-  #  SubA[a, estN.yr.idx] ~ dpois(SAD[a+1]*estN.2002*0.5)
-  #}
-  #nMatA[estN.yr.idx] ~ dpois(SAD[(Amax-1)]*estN.2002*0.5)
-  #MatA[estN.yr.idx] ~ dpois(SAD[Amax]*estN.2002*0.5)
+  YOY[estN.yr.idx] ~ dpois(SAD[1]*estN.2002*0.5)
+  for(a in 1:SA_Amax){
+    SubA[a, estN.yr.idx] ~ dpois(SAD[a+1]*estN.2002*0.5)
+  }
+  nMatA[estN.yr.idx] ~ dpois(SAD[(Amax-1)]*estN.2002*0.5)
+  MatA[estN.yr.idx] ~ dpois(SAD[Amax]*estN.2002*0.5)
   
 
   for(t in sim_Tmin:(sim_Tmax-1)){
