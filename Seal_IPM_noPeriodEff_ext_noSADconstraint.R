@@ -8,11 +8,11 @@ set.seed(mySeed)
 #################
 
 ## Set paths
-DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
-#DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
+#DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
+DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
 
-CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
-#CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
+#CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
+CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
 
 ## Load data
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
@@ -70,7 +70,9 @@ seal.constants <- list(
   estN.yr.idx = 2002 - min(SealDataF_mat$Year) + 1, # Time index for the year of aerial survey (2002)
 
   S_pup.lLimit = 0.4, # Lower limit for baseline pup survival
-  S_pup.uLimit = 0.6 # Upper limit for baseline pup survival
+  S_pup.uLimit = 0.6, # Upper limit for baseline pup survival
+  
+  SAD.alpha = rep(1, 8)
 )
 
 
@@ -159,22 +161,6 @@ seal.IPM <- nimbleCode({
   # This means we have to use either age structure from the harvest sample 
   # (known to underestimate proportion in youngest age classes) or stable age 
   # distribution, which can be extracted from the matrix (standardized eigenvector)
-  
-  ## Setting maturation rate baseline to use in projection matrix
-  cloglog(pMat_SAD[1:SA_Amax]) <- cloglog(Mu.pMat[1:SA_Amax])
-  
-  ## Assembly of projection matrix
-  projMat[1:Amax, 1:Amax] <- make.sealPM(S_YOY = S_YOY, S_SA = S_SA[1:SA_Amax], S_MA = S_MA, 
-                                         pMat = pMat_SAD[1:SA_Amax], 
-                                         #pMat = pMat[1:SA_Amax, sim_Tmin+1], 
-                                         pOvl = pOvl, pPrg = pPrg, S_pup = S_pup[sim_Tmin+1])
-  
-  ## Calculation of asymptotic growth rate from projection matrix
-  lambda_asym <- eigen(projMat[1:Amax, 1:Amax])$values[1]
-  
-  ## Calculation of stable age distribution from projection matrix
-  eigenV[1:Amax] <- eigen(projMat[1:Amax, 1:Amax])$vectors[,1] # Eigenvector belonging to dominant right eigenvalues
-  SAD[1:Amax] <- eigenV[1:Amax] / sum(eigenV[1:Amax]) # Standardized eigenvector = stable age distribution (SAD)
   
   ## Approximation of initial numbers of females per age class (deterministic)
   #YOY[estN.yr.idx] <- round(SAD[1] * estN.2002 * 0.5)
@@ -428,6 +414,8 @@ seal.IPM <- nimbleCode({
   
   ## Population parameters
 
+  # Inital age class distribution
+  SAD[1:Amax] ~ ddirch(alpha = SAD.alpha[1:Amax])
   
   ## Vital rate averages
   
@@ -503,7 +491,7 @@ Inits <- list(initValSim(data = seal.data, constants = seal.constants),
 ############
 
 ## Set parameters to monitor
-params <- c('lambda_asym', 'SAD', 
+params <- c('SAD', 
             'Ntot', 'lambda_real', 
             'Mu.pMat', 'sigmaY.pMat',
             'pMat', 
@@ -540,11 +528,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-save(testRun, file = '220222_Seal_IPM_noPeriodEff_ext_FullRangePupS.RData')
+save(testRun, file = '220222_Seal_IPM_noPeriodEff_ext_noSADconstraint.RData')
 
-pdf('220222_IPMtest_noPeriodEff_ext_FullRangePupS_Traces.pdf', height = 8, width = 11)
+pdf('220222_IPMtest_noPeriodEff_ext_noSADconstraint_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
-
-
-out.mat <- as.matrix(testRun)
