@@ -33,25 +33,55 @@ SealData <- SealData %>%
   # Keep only entries of females with complete age / reproductive state information
   dplyr::filter(Sex == 'F' & !is.na(Age) & !is.na(Maturity)) %>%
 
-  # Assign age class (index)
+  # Assign conservative age class (index)
   dplyr::mutate(AgeClass = case_when(Age == 0 ~ 'YOY',
                                      Age %in% c(1:5) & Maturity == 0 ~ paste0('SubA[', Age, ']'),
                                      Age > 2 ~ 'MatA'),
                 AgeClassIdx = case_when(Age == 0 ~ 1,
                                         Age %in% c(1:5) & Maturity == 0 ~ Age+1,
-                                        Age > 2 ~ 7))
+                                        Age > 2 ~ 7)) %>%
+  
+  # Assign alternative age class (index) - making max. use of available data
+  dplyr::mutate(AgeClass2 = case_when(Age == 0 ~ 'YOY',
+                                      Age %in% c(1:5) & Maturity == 0 ~ paste0('SubA[', Age, ']'),
+                                      Age == 3 & Maturity == 1 ~ 'nMatA',
+                                      Age > 6 ~ 'MatA',
+                                      TRUE ~ paste0('uMatA[', Age, ']')),
+                AgeClass2Idx = case_when(Age == 0 ~ 1,
+                                         Age %in% c(1:5) & Maturity == 0 ~ Age+1,
+                                         Age == 3 & Maturity == 1 ~ 7,
+                                         Age > 6 ~ 8,
+                                         TRUE ~ Age+1))
+                
+## Make data subset containing only individuals with certain age class
+SealData_k <- subset(SealData, !(AgeClass2 %in% paste0('uMatA[', 4:6, ']')))
 
-## Extract preliminary ageclass-at-harvest matrix
+## Make data subset containing only individuals with uncertain age class
+SealData_u <- subset(SealData, AgeClass2 %in% paste0('uMatA[', 4:6, ']'))
+
+## Extract preliminary ageclass-at-harvest matrices
 prel.ACaH <- table(SealData$AgeClassIdx, SealData$YearIdx)
+prel.ACaH_k <- table(SealData_k$AgeClass2Idx, SealData_k$YearIdx)
+prel.uMatA <- table(SealData_u$AgeClass2Idx, SealData_u$YearIdx)
 
-## Write complete ageclass-at-harvest matrix (incl. years without sampling)
+## Write complete ageclass-at-harvest matrices (incl. years without sampling)
 ACaH <- matrix(0, nrow = max(SealData$AgeClassIdx), ncol = max(SealData$YearIdx),
                dimnames = list(c('YOY', paste0('SubA[', 1:5, ']'), 'MatA'), min(SealData$Year):max(SealData$Year)))
+ACaH_k <- matrix(0, nrow = max(SealData_k$AgeClass2Idx, na.rm = T), ncol = max(SealData_k$YearIdx),
+               dimnames = list(c('YOY', paste0('SubA[', 1:5, ']'),'nMatA', 'MatA'), min(SealData_k$Year):max(SealData_k$Year)))
+uMatA <- matrix(0, nrow = 3, ncol = max(SealData$YearIdx),
+               dimnames = list(paste0('uMatA[', 4:6, ']'), min(SealData$Year):max(SealData$Year)))
 
 for(t in 1:dim(ACaH)[2]){
   if(t %in% dimnames(prel.ACaH)[[2]]){
     ACaH[,t] <- prel.ACaH[,which(dimnames(prel.ACaH)[[2]]==t)]
-  }  
+  }
+  if(t %in% dimnames(prel.ACaH2)[[2]]){
+    ACaH_k[,t] <- prel.ACaH_k[,which(dimnames(prel.ACaH2)[[2]]==t)]
+  }
+  if(t %in% dimnames(prel.uMatA)[[2]]){
+    uMatA[,t] <- prel.uMatA[,which(dimnames(prel.uMatA)[[2]]==t)]
+  }
 }
 
 ## Count numbers harvested by year and seal year
@@ -188,8 +218,11 @@ HarvestData <- list(
   no.H = no.H,
   count.all = count.all,
   count.Isfj = count.Isfj,
-  r = r
+  r = r,
+  
+  ACaH_k = ACaH_k,
+  uMatA = uMatA
 )
 
 ## Save data
-saveRDS(HarvestData, file = '220204_HarvestCountData.rds')
+saveRDS(HarvestData, file = '220405_HarvestCountData.rds')
