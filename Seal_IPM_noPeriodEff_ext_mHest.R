@@ -493,6 +493,10 @@ Inits <- list(initValSim(data = seal.data, constants = seal.constants),
               initValSim(data = seal.data, constants = seal.constants),
               initValSim(data = seal.data, constants = seal.constants))
 
+## Change pup survival parameter bounds in constants
+seal.constants$S_pup.lLimit <- 0
+seal.constants$S_pup.uLimit <- 1
+
 ############
 # TEST RUN #
 ############
@@ -535,12 +539,9 @@ testRun <- nimbleMCMC(code = seal.IPM,
                       samplesAsCodaMCMC = TRUE, setSeed = mySeed)
 
 
-#setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-#save(testRun, file = '220222_Seal_IPM_noPeriodEff_ext_mHest.RData')
+setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
+save(testRun, file = '220223_Seal_IPM_noPeriodEff_ext_mHest.RData')
 
-pdf('220222_IPMtest_noPeriodEff_mHest_Traces.pdf', height = 8, width = 11)
+pdf('220223_IPMtest_noPeriodEff_mHest_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
-
-
-out.mat <- as.matrix(testRun)

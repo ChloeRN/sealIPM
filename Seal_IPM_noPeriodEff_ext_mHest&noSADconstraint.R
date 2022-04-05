@@ -8,17 +8,17 @@ set.seed(mySeed)
 #################
 
 ## Set paths
-#DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
-DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
+DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
+#DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
 
-#CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
-CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
+CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
+#CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
 
 ## Load data
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
 mN.param.data <- readRDS(paste0(CodePath, '220119_mO_HoeningParameters_Seal.rds'))
 HarvestData <- readRDS(paste0(CodePath, '220204_HarvestCountData.rds'))
-  
+
 ## Assemble data and constants
 seal.data <- list(
   Mature = SealDataF_mat$Maturity, # Individual maturity status
@@ -71,7 +71,7 @@ seal.constants <- list(
 
   S_pup.lLimit = 0.4, # Lower limit for baseline pup survival
   S_pup.uLimit = 0.6, # Upper limit for baseline pup survival
-  
+
   SAD.alpha = rep(1, 8)
 )
 
@@ -369,25 +369,26 @@ seal.IPM <- nimbleCode({
   S_pup[1:Tmax] <- Mu.S_pup
   
   
-  # Mortality (hazard) rates #
-  #--------------------------#
+  # Harvest proportions #
+  #---------------------#
   
   ## Proportion dying due to harvest
   alpha[1] <- mH_YOY/(mH_YOY+mN_YOY) 
   alpha[2:(max.matA+1)] <- mH_SA[1:max.matA]/(mH_SA[1:max.matA]+mN_SA[1:max.matA]) 
   alpha[Amax-1] <- mH_MA/(mH_MA+mN_MA)
   
-  ## Harvest mortality
+
+  # Survival probabilities #
+  #------------------------#
   
   # First-year
-  mH_YOY <- -log(S_YOY) - mN_YOY
+  S_YOY <- exp(-(mH_YOY + mN_YOY))
   
   # Subadults
-  #mH_SA[1:max.matA] <- -log(S_SA[1:max.matA]) - mN_SA[1:max.matA]
-  mH_SA[1:max.matA] <- mH_MA
+  S_SA[1:max.matA] <- exp(-(mH_SA[1:max.matA] + mN_SA[1:max.matA]))
   
   # Adults
-  mH_MA <- -log(S_MA) - mN_MA
+  S_MA <- exp(-(mH_MA + mN_MA))
   
   
   # Proportion harvested in Isfjorden area #
@@ -441,26 +442,20 @@ seal.IPM <- nimbleCode({
   Mu.S_pup ~ dunif(S_pup.lLimit, S_pup.uLimit)
   
   
-  # First-year survival & natural mortality
-  S_YOY <- S_YOY.fix
-  #S_YOY ~ dwhatever()
+  # First-year harvest & natural mortality
+  mH_YOY ~ dunif(0, 2)
+  mN_YOY ~ dlnorm(meanlog = mN.logmean, sdlog = mN.logsd)
   
-  mN_YOY ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_YOY))
-  
-  # Subadult survival & natural mortality
+  # Subadult harvest & natural mortality
   for(a in 1:max.matA){
-    S_SA[a] <- S_SA.fix[a]
-    #S_SA[a] ~ dwhatever()
-    
-    mN_SA[a] ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_SA[a]))
+    mH_SA[a] <- mH_MA
+    mN_SA[a] ~ dlnorm(meanlog = mN.logmean, sdlog = mN.logsd)
   }
   
   
-  # Adult survival & natural mortality
-  S_MA <- S_MA.fix
-  #S_MA ~ dwhatever()
-  
-  mN_MA ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_MA))
+  # Adult harvest & natural mortality
+  mH_MA ~ dunif(0, 2)
+  mN_MA ~ dlnorm(meanlog = mN.logmean, sdlog = mN.logsd)
   
   
   ## Fixed effects
@@ -478,7 +473,7 @@ seal.IPM <- nimbleCode({
 ###########################
 
 ## Function for simulating initial values
-source(paste0(CodePath, 'Seal_IPM_InitValSim.R'))
+source('Seal_IPM_InitValSim.R')
 
 ## Sample initial values
 #Inits <- list(initValSim(data = seal.data, constants = seal.constants))
@@ -503,6 +498,7 @@ params <- c('SAD',
             'S_pup', 
             'estN.2002', 
             'YOY', 'SubA', 'nMatA', 'MatA',
+            'S_YOY', 'S_SA', 'S_MA',
             'mN_YOY', 'mN_SA', 'mN_MA',
             'mH_YOY', 'mH_SA', 'mH_MA',
             'S_YOY', 'S_SA', 'S_MA',
@@ -532,8 +528,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-save(testRun, file = '220223_Seal_IPM_noPeriodEff_ext_noSADconstraint.RData')
+save(testRun, file = '220223_Seal_IPM_noPeriodEff_ext_mHest&noSADconstraint.RData')
 
-pdf('220223_IPMtest_noPeriodEff_ext_noSADconstraint_Traces.pdf', height = 8, width = 11)
+pdf('220223_IPMtest_noPeriodEff_mHest&noSADconstraint_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
