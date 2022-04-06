@@ -43,10 +43,10 @@ initValSim <- function(data, constants){
   mH_MA <- -log(S_MA) - mN_MA
   
   ## Proportions dying due to harvest
-  alpha <- rep(NA, (constants$Amax-1))
+  alpha <- rep(NA, constants$Amax)
   alpha[1] <- mH_YOY/(mH_YOY+mN_YOY) 
   alpha[2:(constants$max.matA+1)] <- mH_SA[1:constants$max.matA]/(mH_SA[1:constants$max.matA]+mN_SA[1:constants$max.matA]) 
-  alpha[constants$Amax-1] <- mH_MA/(mH_MA+mN_MA)
+  alpha[(constants$Amax-1):constants$Amax] <- mH_MA/(mH_MA+mN_MA)
   
   # 1.2) Vital rate standard deviations and random effects
   
@@ -103,7 +103,7 @@ initValSim <- function(data, constants){
   Surv_SubA[1,] <- Mat_SubA[1,] <- 0
   Surv_nMatA <- Surv_MatA <- R_Mat <- R_nMat <- Ntot <- rep(NA, constants$Tmax)
   lambda_real <- rep(NA, constants$Tmax-1)
-  D <- H <- matrix(NA, nrow = constants$Amax-1, ncol = constants$Tmax-1)
+  D <- H <- matrix(NA, nrow = constants$Amax, ncol = constants$Tmax-1)
   
   # 2.5) Set values prior to simulation start to 0
   YOY[1:(constants$sim_Tmin-1)] <- 0
@@ -132,17 +132,25 @@ initValSim <- function(data, constants){
     
     # 3.1) Survival to the next year 
     
+    ## Set minimum number of deaths to maintain consistency with harvest data
+    min.dead <- ifelse(data$ACaH_k[,t] > 0, 1, 0)
+    
     ## Young-of-the-year --> age 1 subadults
-    SubA[1, t+1] <- rbinom(1, YOY[t], S_YOY)
+    #SubA[1, t+1] <- rbinom(1, YOY[t], S_YOY)
+    SubA[1, t+1] <- extraDistr::rtbinom(1, YOY[t], S_YOY, a = 0, b = YOY[t]-min.dead[1])
     
     ## Age 1-5 subadults
     for(a in 1:constants$SA_Amax){
-      Surv_SubA[a+1, t+1] <- rbinom(1, SubA[a, t], S_SA[a])
+      #Surv_SubA[a+1, t+1] <- rbinom(1, SubA[a, t], S_SA[a])
+      Surv_SubA[a+1, t+1] <- extraDistr::rtbinom(1, SubA[a, t], S_SA[a], a = 0, b = SubA[a, t]-min.dead[a+1])
     }
     
     ## (Newly) mature adults --> mature adults
-    Surv_nMatA[t+1] <- rbinom(1, nMatA[t], S_MA)
-    Surv_MatA[t+1] <- rbinom(1, MatA[t], S_MA)
+    #Surv_nMatA[t+1] <- rbinom(1, nMatA[t], S_MA)
+    #Surv_MatA[t+1] <- rbinom(1, MatA[t], S_MA)
+    
+    Surv_nMatA[t+1] <- extraDistr::rtbinom(1, nMatA[t], S_MA, a = 0, b = nMatA[t]-min.dead[7])
+    Surv_MatA[t+1] <- extraDistr::rtbinom(1, MatA[t], S_MA, a = 0, b = MatA[t]-min.dead[8])
     
     MatA[t+1] <- Surv_nMatA[t+1] + Surv_MatA[t+1]
     
@@ -151,23 +159,24 @@ initValSim <- function(data, constants){
     
     ## Number that died in each age class
     #  Age classes re-defined to match AaH data: 
-    #  1 = YOY, 2-6 = Sub[1]-Sub[5], 7 = nMatA+MatA
+    #  1 = YOY, 2-6 = Sub[1]-Sub[5], 7 = nMatA, 8 = MatA
     D[1,t] <- YOY[t] - SubA[1, t+1]
     
     for(a in 1:constants$SA_Amax){
       D[1+a,t] <- SubA[a, t] - Surv_SubA[a+1, t+1]
     }
     
-    D[constants$Amax-1,t] <- nMatA[t] + MatA[t] -  MatA[t+1]
+    D[constants$Amax-1,t] <- nMatA[t] - Surv_nMatA[t+1]
+    D[constants$Amax,t] <- MatA[t] - Surv_MatA[t+1]
     
     ## Number that died due to harvest
-    for(a in 1:(constants$Amax-1)){
+    for(a in 1:constants$Amax){
       #H[a,t] <- rbinom(1, D[a,t], alpha[a])
       H[a,t] <- extraDistr::rtbinom(1, D[a,t], alpha[a], a = 0, b = Inf)
       # NOTE: Using a truncated binomial here to avoid sampling H = 0 when D > 0
     }
-    
-    
+      
+
     # 3.3) Maturation to the next year #
     
     ## Surviving age 1-5 (2-6) subadults maturing
@@ -222,6 +231,12 @@ initValSim <- function(data, constants){
     pACaH[t] <- data$no.ACaH[t]/sum(H[,t])
   }
   
+  # 4.2) Numbers of unobserved-class harvests in ACaH
+  u_nMat_H <- matrix(0, nrow = dim(data$uMatA)[1], ncol = dim(data$uMatA)[2])
+  
+  extra_ACaH <- matrix(0, nrow = dim(data$ACaH_k)[1], ncol = dim(data$ACaH_k)[2])
+  extra_ACaH[8,] <- colSums(data$uMatA) # All assumed previously mature
+  
   #-----------------------------------------------------------------------
   
   # 5) Assemble and return initial values #
@@ -247,7 +262,9 @@ initValSim <- function(data, constants){
     
     D = D, H = H, 
     
-    pACaH = pACaH
+    pACaH = pACaH,
+    
+    u_nMat_H = u_nMat_H, extra_ACaH = extra_ACaH
   )
   
   return(InitVals)
