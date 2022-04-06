@@ -386,8 +386,14 @@ seal.IPM <- nimbleCode({
   # Pup survival #
   #--------------#
   
-  S_pup[1:Tmax] <- Mu.S_pup
-  
+  #S_pup[1:Tmax] <- Mu.S_pup
+  for(t in 1:Tmax){
+    
+    S_pup[t] <- exp(-(m_pup[t]))
+    log(m_pup[t]) <- log(-log(Mu.S_pup)) + epsilonY.m_pup[t]
+    
+    epsilonY.m_pup[t] ~ dnorm(0, sd = sigmaY.m_pup)
+  }
   
   # Mortality (hazard) rates #
   #--------------------------#
@@ -490,6 +496,9 @@ seal.IPM <- nimbleCode({
   # Annual variation in maturation rate 
   sigmaY.pMat ~ dunif(0, 5)
   
+  # Annual variation in pup mortality
+  sigmaY.m_pup ~ dunif(0, 10)
+  
 })
 
 
@@ -550,7 +559,7 @@ params <- c('SAD',
             'Mu.pMat', 'sigmaY.pMat',
             'pMat', 
             'pOvl', 'pPrg',
-            'S_pup', 
+            'Mu.S_pup', 'S_pup', 'sigmaY.m_pup',
             'estN.2002', 
             'YOY', 'SubA', 'nMatA', 'MatA',
             'mN_YOY', 'mN_SA', 'mN_MA',
@@ -582,8 +591,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-save(testRun, file = '220405_Seal_IPM_noPeriodEff_ext2_noSADconstraint.RData')
+save(testRun, file = '220406_Seal_IPM_noPeriodEff_ext2_noSADconstraint_pupTvar.RData')
 
-pdf('220405_IPMtest_noPeriodEff_ext2_noSADconstraint_Traces.pdf', height = 8, width = 11)
+pdf('220406_IPMtest_noPeriodEff_ext2_noSADconstraint_pupTvar_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()

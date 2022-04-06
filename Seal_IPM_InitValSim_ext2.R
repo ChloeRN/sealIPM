@@ -54,6 +54,9 @@ initValSim <- function(data, constants){
   sigmaY.pMat <- runif(1, 0.01, 0.1)
   epsilonY.pMat <- rep(0, constants$Tmax)
   
+  ## Pup mortality
+  sigmaY.m_pup<- runif(1, 0.01, 0.1)
+  epsilonY.m_pup <- rep(0, constants$Tmax)
   
   # 1.3) Time-dependent vital rates
   
@@ -249,6 +252,7 @@ initValSim <- function(data, constants){
     S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, alpha = alpha,
     
     sigmaY.pMat = sigmaY.pMat, epsilonY.pMat = epsilonY.pMat,
+    sigmaY.m_pup = sigmaY.m_pup, epsilonY.m_pup = epsilonY.m_pup,
     
     pMat = pMat, S_pup = S_pup,
     
