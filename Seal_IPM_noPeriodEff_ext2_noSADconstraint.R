@@ -17,7 +17,7 @@ CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest
 ## Load data
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
 mN.param.data <- readRDS(paste0(CodePath, '220119_mO_HoeningParameters_Seal.rds'))
-HarvestData <- readRDS(paste0(CodePath, '220204_HarvestCountData.rds'))
+HarvestData <- readRDS(paste0(CodePath, '220405_HarvestCountData.rds'))
   
 ## Assemble data and constants
 seal.data <- list(
@@ -43,7 +43,8 @@ seal.data <- list(
   no.H = HarvestData$no.H,
   r = HarvestData$r,
   
-  ACaH = HarvestData$ACaH,
+  ACaH_k = HarvestData$ACaH_k,
+  uMatA = HarvestData$uMatA,
   no.ACaH = HarvestData$No.ACaH.yr,
   
   count.Isfj = HarvestData$count.Isfj,
@@ -209,10 +210,11 @@ seal.IPM <- nimbleCode({
       D[1+a,t] <- SubA[a, t] - Surv_SubA[a+1, t+1]
     }
     
-    D[Amax-1,t] <- nMatA[t] + MatA[t] -  MatA[t+1]
-  
+    D[Amax-1,t] <- nMatA[t] - Surv_nMatA[t+1]
+    D[Amax,t] <- MatA[t] -  Surv_MatA[t+1]
+    
     ## Number that died due to harvest
-    for(a in 1:(Amax-1)){
+    for(a in 1:Amax){
       H[a,t] ~ dbin(alpha[a], D[a,t])
     }
 
@@ -285,8 +287,8 @@ seal.IPM <- nimbleCode({
   Ntot[1:(sim_Tmin-1)] <- 0
   lambda_real[1:(sim_Tmin-1)] <- 0
   
-  D[1:(Amax-1),1:(sim_Tmin-1)] <- 0
-  H[1:(Amax-1),1:(sim_Tmin-1)] <- 0
+  D[1:Amax,1:(sim_Tmin-1)] <- 0
+  H[1:Amax,1:(sim_Tmin-1)] <- 0
   
   #******************#
   # DATA LIKELIHOODS #                                                          
@@ -310,9 +312,27 @@ seal.IPM <- nimbleCode({
   # Likelihood for harvest age structure data #
   #-------------------------------------------#
   
+  ## Likelihood for age assignment of unknown age class ACaH data (uMatA)
+  u_nMat_H[1:3,1:(sim_Tmin-1)] <- 0
+  extra_ACaH[1:8,1:(sim_Tmin-1)] <- 0
+  
+  for(t in sim_Tmin:sim_Tmax){
+    
+    # Age 4-6 mature females that are newly matured
+    u_nMat_H[1,t] ~ dbin((1-pMat[3,t-1])*pMat[4,t], uMatA[1,t]) # Age 4
+    u_nMat_H[2,t] ~ dbin((1-pMat[3,t-2])*(1-pMat[4,t-1])*pMat[5,t], uMatA[2,t]) # Age 5
+    u_nMat_H[3,t] ~ dbin((1-pMat[3,t-3])*(1-pMat[4,t-4])*(1-pMat[5,t-1]), uMatA[3,t]) # Age 6
+
+    # Age class distribution of additional females to add to ACaH data
+    extra_ACaH[1:6,t] <- 0
+    extra_ACaH[7,t] <- sum(u_nMat_H[1:3,t])
+    extra_ACaH[8,t] <- sum(uMatA[1:3,t]) - extra_ACaH[7,t]
+  }
+  
+  ## Likelihood for known age class ACaH data
   for(t in sim_Tmin:(sim_Tmax-1)){
-    for(a in 1:(Amax-1)){
-      ACaH[a,t] ~ dpois(H[a,t]*pACaH[t])
+    for(a in 1:Amax){
+      ACaH_k[a,t] ~ dpois((H[a,t]*pACaH[t])-extra_ACaH[a,t]) 
     }
   }
   
@@ -354,7 +374,7 @@ seal.IPM <- nimbleCode({
     }
   }
 
-  ## Age class 9+ (constrained mature)
+  ## Age class 6+ (constrained mature)
   pMat[max.matA+1, 1:Tmax] <- 1
   
   ## Random year effects
@@ -375,7 +395,7 @@ seal.IPM <- nimbleCode({
   ## Proportion dying due to harvest
   alpha[1] <- mH_YOY/(mH_YOY+mN_YOY) 
   alpha[2:(max.matA+1)] <- mH_SA[1:max.matA]/(mH_SA[1:max.matA]+mN_SA[1:max.matA]) 
-  alpha[Amax-1] <- mH_MA/(mH_MA+mN_MA)
+  alpha[(Amax-1):Amax] <- mH_MA/(mH_MA+mN_MA)
   
   ## Harvest mortality
   
@@ -506,20 +526,20 @@ params <- c('SAD',
             'mN_YOY', 'mN_SA', 'mN_MA',
             'mH_YOY', 'mH_SA', 'mH_MA',
             'S_YOY', 'S_SA', 'S_MA',
-            'alpha', 'D', 'H'
+            'alpha', 'D', 'H', 'extra_ACaH', 'u_nMat_H' 
             )
 
 ## MCMC specs
-#niter <- 2
-#nburnin <- 0
-#nthin <- 1
-#nchains <- 3
+niter <- 10
+nburnin <- 0
+nthin <- 1
+nchains <- 3
 #nchains <- 1
 
-niter <- 100000
-nburnin <- 30000
-nthin <- 10
-nchains <- 3
+#niter <- 100000
+#nburnin <- 30000
+#nthin <- 10
+#nchains <- 3
 
 ## Testrun
 testRun <- nimbleMCMC(code = seal.IPM, 
@@ -532,8 +552,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-save(testRun, file = '220223_Seal_IPM_noPeriodEff_ext_noSADconstraint.RData')
+save(testRun, file = '220405_Seal_IPM_noPeriodEff_ext2_noSADconstraint.RData')
 
-pdf('220223_IPMtest_noPeriodEff_ext_noSADconstraint_Traces.pdf', height = 8, width = 11)
+pdf('220405_IPMtest_noPeriodEff_ext2_noSADconstraint_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
