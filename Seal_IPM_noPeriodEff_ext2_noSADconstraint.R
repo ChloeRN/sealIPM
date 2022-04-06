@@ -46,6 +46,8 @@ seal.data <- list(
   ACaH_k = HarvestData$ACaH_k,
   uMatA = HarvestData$uMatA,
   no.ACaH = HarvestData$No.ACaH.yr,
+  #no.ACaH = colSums(HarvestData$ACaH_k[2:8,]),
+  
   
   count.Isfj = HarvestData$count.Isfj,
   count.all = HarvestData$count.all
@@ -332,6 +334,7 @@ seal.IPM <- nimbleCode({
   ## Likelihood for known age class ACaH data
   for(t in sim_Tmin:(sim_Tmax-1)){
     for(a in 1:Amax){
+    #for(a in 2:Amax){
       ACaH_k[a,t] ~ dpois((H[a,t]*pACaH[t])-extra_ACaH[a,t]) 
     }
   }
@@ -432,6 +435,7 @@ seal.IPM <- nimbleCode({
   
   for(t in sim_Tmin:(sim_Tmax-1)){
     pACaH[t] <- no.ACaH[t]/sum(H[1:(Amax-1),t])
+    #pACaH[t] <- no.ACaH[t]/sum(H[2:(Amax-1),t])
   }
   
   #*********#
