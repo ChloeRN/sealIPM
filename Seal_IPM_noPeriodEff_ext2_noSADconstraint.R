@@ -498,13 +498,43 @@ seal.IPM <- nimbleCode({
 ###########################
 
 ## Function for simulating initial values
-source(paste0(CodePath, 'Seal_IPM_InitValSim.R'))
+source(paste0(CodePath, 'Seal_IPM_InitValSim_ext2.R'))
+
+## Function for sampling and checking consistency of initial values
+initValSet <- function(data, constants){
+  
+  Tmin <- constants$sim_Tmin
+  Tmax <- constants$sim_Tmax-1
+  
+  good.inits <- FALSE
+  iter <- 0
+  
+  while(!good.inits){
+    
+    # Increase counter
+    iter <- iter + 1
+    
+    # Sample initial values
+    Inits <- initValSim(data = data, constants = constants)
+  
+    # Check harvest data consistency
+    # class7_check --> not necessary because all unknown class individuals are assigned to class 8 in simulation
+    class8_check <- all(Inits$H[8,Tmin:Tmax]*(data$no.ACaH[Tmin:Tmax]/colSums(Inits$H[,Tmin:Tmax])) >= colSums(data$uMat[,Tmin:Tmax]))
+    class8_check
+    
+    good.inits <- class8_check  
+  }
+  
+  message(paste0('Iterations to get good inits: ', iter))
+  return(Inits)
+}
+
 
 ## Sample initial values
 #Inits <- list(initValSim(data = seal.data, constants = seal.constants))
-Inits <- list(initValSim(data = seal.data, constants = seal.constants),
-              initValSim(data = seal.data, constants = seal.constants),
-              initValSim(data = seal.data, constants = seal.constants))
+Inits <- list(initValSet(data = seal.data, constants = seal.constants),
+              initValSet(data = seal.data, constants = seal.constants),
+              initValSet(data = seal.data, constants = seal.constants))
 
 ## Change pup survival parameter bounds in constants
 seal.constants$S_pup.lLimit <- 0
