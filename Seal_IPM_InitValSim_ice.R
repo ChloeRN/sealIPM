@@ -4,6 +4,30 @@
 
 initValSim <- function(data, constants){
   
+  # 0) Set parameters for ice model #
+  #---------------------------------#
+  
+  # 0.1) Missing covariate values
+  ice <- rep(NA, length(data$ice))
+  ice.cov <- data$ice
+  for(t in 1:length(ice)){
+    if(is.na(data$ice[t])){
+      ice[t] <- ice.cov[t] <- rnorm(1, mean = mean(data$ice, na.rm = T), sd = sd(data$ice, na.rm = t))
+    }
+  }
+  
+  # 0.2) Ice model parameters
+  if(TrendIceModel){
+    Mu.ice <- runif(1, max(data$ice, na.rm = T)*0.9, max(data$ice, na.rm = T)*1.1)
+  }else{
+    Mu.ice <- runif(3, mean(data$ice, na.rm = T)*0.9, mean(data$ice, na.rm = T)*1.1)
+  }
+  
+  beta.ice <- runif(1, -0.1, 0)
+  sigmaY.ice <- runif(1, 0, 2)
+  
+  #-----------------------------------------------------------------------
+  
   # 1) Simulate vital rates #
   #-------------------------#
   
@@ -21,8 +45,7 @@ initValSim <- function(data, constants){
   pPrg <- runif(1, pPrg_exp*0.75, ifelse(pPrg_exp*1.25 < 1, pPrg_exp*1.25, 1))
   
   ## Pup survival
-  Mu.S_pup <- runif(1, constants$S_pup.lLimit, constants$S_pup.uLimit)
-  
+  S_pup.ideal <- constants$Mu.S_pup.ideal
   
   ## First-year survival and natural & harvest mortality 
   S_YOY <- data$S_YOY.fix
@@ -69,7 +92,11 @@ initValSim <- function(data, constants){
   pMat[constants$max.matA+1, 1:constants$Tmax] <- 1
   
   ## Pup survival
-  S_pup <- rep(Mu.S_pup, constants$Tmax)
+  S_pup <- rep(NA, constants$sim_Tmax)
+  
+  for(t in 1:constants$sim_Tmax){
+    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, ice.ideal = ice.ideal, ice = ice.cov[t])
+  }
   
   #-----------------------------------------------------------------------
   
@@ -186,10 +213,16 @@ initValSim <- function(data, constants){
     # 3.4) Reproduction prior to next year's census #
     
     ## Expected reproduction from surviving newly mature adults
-    R_nMat[t+1] <- Surv_nMatA[t+1] * pPrg * 0.5 * S_pup[t+1]
+    #R_nMat[t+1] <- Surv_nMatA[t+1] * pPrg * 0.5 * S_pup[t+1]
+    R_nMat[t+1] <- Surv_nMatA[t+1] * pPrg * 0.5 * ifelse(S_pup[t+1] > 0.5, S_pup[t+1], 0.6)
     
     ## Expected reproduction from surviving mature adults
-    R_Mat[t+1] <- Surv_MatA[t+1] * pOvl * pPrg * 0.5 * S_pup[t+1]
+    #R_Mat[t+1] <- Surv_MatA[t+1] * pOvl * pPrg * 0.5 * S_pup[t+1]
+    R_Mat[t+1] <- Surv_MatA[t+1] * pOvl * pPrg * 0.5 * ifelse(S_pup[t+1] > 0.5, S_pup[t+1], 0.6)
+    
+    # NOTE: I'm constraining S_pup used for simulations to be larger than 0.5 
+    #       because inconsistencies between data and simulation are much more 
+    #       likely to happen when simulating a declining population. 
     
     ## Realized reproduction
     YOY[t+1] <- rpois(1, R_nMat[t+1] + R_Mat[t+1])
@@ -205,8 +238,8 @@ initValSim <- function(data, constants){
     Ntot[t] <- YOY[t] + sum(SubA[1:constants$SA_Amax, t]) + nMatA[t] + MatA[t]
     
     ## Realized population growth rate
-    if(t < constants$sim_Tmax){
-      lambda_real[t] <- Ntot[t+1] / Ntot[t]
+    if(t > 1){
+      lambda_real[t-1] <- Ntot[t] / Ntot[t-1]
     }
   }
   
@@ -224,11 +257,12 @@ initValSim <- function(data, constants){
   
   #-----------------------------------------------------------------------
   
-  # 5) Assemble and return initial values #
+  # 7) Assemble and return initial values #
   #---------------------------------------#
   
   InitVals <- list(
-    Mu.pMat = Mu.pMat, pOvl = pOvl, pPrg = pPrg, Mu.S_pup = Mu.S_pup,
+    Mu.pMat = Mu.pMat, pOvl = pOvl, pPrg = pPrg, 
+    S_pup.ideal = S_pup.ideal, m_pup.ideal = -log(S_pup.ideal),
     S_YOY = S_YOY, mN_YOY = mN_YOY, mH_YOY = mH_YOY,
     S_SA = S_SA, mN_SA = mN_SA, mH_SA = mH_SA,
     S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, alpha = alpha,
@@ -247,7 +281,10 @@ initValSim <- function(data, constants){
     
     D = D, H = H, 
     
-    pACaH = pACaH
+    pACaH = pACaH,
+    
+    ice = ice,
+    Mu.ice = Mu.ice, beta.ice = beta.ice, sigmaY.ice = sigmaY.ice
   )
   
   return(InitVals)

@@ -18,7 +18,36 @@ CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
 mN.param.data <- readRDS(paste0(CodePath, '220119_mO_HoeningParameters_Seal.rds'))
 HarvestData <- readRDS(paste0(CodePath, '220405_HarvestCountData.rds'))
-  
+IceData <- readRDS(paste0(DataPath, '220428_SealIPM_IceData.rds'))
+
+## Set parameters that are fixed a priori (but may be varied)
+
+# Start and end years for population model
+sim_Tmin <- 2002 - 1981 + 1 
+sim_Tmax <- length(1981:2020) 
+
+# Pup survival ~ sea ice
+Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
+sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
+ice.ideal <- median(IceData$fastice.mean[which(IceData$ice.period == 1)])# threshold ice extent above which conditions are considered ideal
+
+# First-year survival
+S_YOY.fix <- 0.75
+
+# (Sub)adult annual survival
+S_SA.fix <- c(0.80, 0.82, 0.84, 0.86, 0.88)
+S_MA.fix <- 0.92
+# NOTE: The survival probabilities are fixed to similar numbers as used by
+# Reimer et al. 2019, Ecological Applications 29(3), e01855
+
+## Make ice covariate
+ice.cov <- IceData$fastice.mean[1:sim_Tmax]
+ice.cov[which(IceData$ice.dataKeep==0)] <- NA
+
+# Ice model type switch (FALSE = period, TRUE = Trend)
+#TrendIceModel <- FALSE
+TrendIceModel <- TRUE
+
 ## Assemble data and constants
 seal.data <- list(
   Mature = SealDataF_mat$Maturity, # Individual maturity status
@@ -28,13 +57,10 @@ seal.data <- list(
   noPrg.P3 = 37, # Number of pregnant females (Aug-Oct of period 3)
   noMat.P3 = 52, # Number of mature females (Aug-Oct of period 3)
   
-  S_YOY.fix = 0.75,
-  #S_SA.fix = c(0.82, 0.84, 0.86, 0.88, 0.90),
-  S_SA.fix = c(0.80, 0.82, 0.84, 0.86, 0.88),
-  S_MA.fix = 0.92,
-  # NOTE: The survival probabilities are fixed to similar numbers as used by
-  # Reimer et al. 2019, Ecological Applications 29(3), e01855
-  
+  S_YOY.fix = S_YOY.fix,
+  S_SA.fix = S_SA.fix,
+  S_MA.fix = S_MA.fix,
+
   estN.mean = 3242, # Mean of estimated number of seals (males and females) from 2002 aerial survey
   estN.sd = 266, # Standard deviation of estimated number of seals (males and females) from 2002 aerial survey (NOTE: reported as se, but seems to actually be sd)
 
@@ -50,7 +76,9 @@ seal.data <- list(
   
   
   count.Isfj = HarvestData$count.Isfj,
-  count.all = HarvestData$count.all
+  count.all = HarvestData$count.all,
+  
+  ice = ice.cov
 )
 
 seal.constants <- list(
@@ -58,8 +86,8 @@ seal.constants <- list(
   SA_Amax = 5, # Number of subadult age classes
   
   Tmax = length(1981:2020), # Total length of the study period
-  sim_Tmin = 2002 - 1981 + 1, # Start year for population model
-  sim_Tmax = length(1981:2020), # End year for population model
+  sim_Tmin = sim_Tmin, # Start year for population model
+  sim_Tmax = sim_Tmax, # End year for population model
   
   Pmax = 3, 
   
@@ -72,10 +100,13 @@ seal.constants <- list(
 
   estN.yr.idx = 2002 - min(SealDataF_mat$Year) + 1, # Time index for the year of aerial survey (2002)
 
-  S_pup.lLimit = 0.4, # Lower limit for baseline pup survival
-  S_pup.uLimit = 0.6, # Upper limit for baseline pup survival
+  SAD.alpha = rep(1, 8),
   
-  SAD.alpha = rep(1, 8)
+  Mu.S_pup.ideal = Mu.S_pup.ideal,
+  sdlog.m_pup = sdlog.m_pup,
+  
+  ice.period = IceData$ice.period,
+  ice.ideal = ice.ideal
 )
 
 
@@ -117,6 +148,29 @@ make.sealPM <- nimbleFunction(
     # Return matrix
     return(A)
     returnType(double(2))
+  }
+)
+
+## Nimble function for calculating pup survival
+calc.S_pup <- nimbleFunction(
+  
+  run = function(S_pup.ideal = double(0),
+                 ice.ideal = double(0),
+                 ice = double(0)) {
+    
+    # Calculate sea ice factor
+    if(ice <= ice.ideal){
+      P_ice <- ice/ice.ideal
+    }else{
+      P_ice <- 1
+    }
+    
+    # Calculate survival probability and multiply by ice factor
+    S_pup <- S_pup.ideal*P_ice
+    
+    # Return matrix
+    return(S_pup)
+    returnType(double(0))
   }
 )
 
@@ -389,14 +443,11 @@ seal.IPM <- nimbleCode({
   # Pup survival #
   #--------------#
   
-  #S_pup[1:Tmax] <- Mu.S_pup
-  for(t in 1:Tmax){
-    
-    S_pup[t] <- exp(-(m_pup[t]))
-    log(m_pup[t]) <- log(-log(Mu.S_pup)) + epsilonY.m_pup[t]
-    
-    epsilonY.m_pup[t] ~ dnorm(0, sd = sigmaY.m_pup)
+  # Year-specific pup survival (dependent on sea ice)
+  for(t in 1:sim_Tmax){
+    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, ice.ideal = ice.ideal, ice = ice[t])
   }
+  
   
   # Mortality (hazard) rates #
   #--------------------------#
@@ -467,8 +518,9 @@ seal.IPM <- nimbleCode({
   pPrg ~ dunif(0, 1)
   
   
-  # Pup survival
-  Mu.S_pup ~ dunif(S_pup.lLimit, S_pup.uLimit)
+  # Pup survival under ideal conditions
+  m_pup.ideal ~ dlnorm(meanlog = log(-log(Mu.S_pup.ideal)), sdlog = sdlog.m_pup)
+  S_pup.ideal <- exp(-m_pup.ideal)
   
   
   # First-year survival & natural mortality
@@ -503,6 +555,35 @@ seal.IPM <- nimbleCode({
   # Annual variation in pup mortality
   sigmaY.m_pup ~ dunif(0, 10)
   
+  
+  #**************************#
+  # SEA ICE COVARIATE MODEL  #                                                          
+  #**************************#
+  
+  ## Data likelihood (imputation of missing values)
+  for(t in 1:sim_Tmax){
+    ice[t] ~ dlnorm(meanlog = log(ice.pred[t]), sdlog = sigmaY.ice)
+  }
+  
+  if(TrendIceModel){
+    ## Ice model - Trend
+    log(ice.pred[1:sim_Tmax]) <- log(Mu.ice) + beta.ice*(1:sim_Tmax)
+    Mu.ice ~ dunif(0, ice.ideal*2)
+    beta.ice ~ dunif(-5, 0)
+    
+  } else {
+    ## Ice model - Period
+    for(t in 1:sim_Tmax){
+      log(ice.pred[t]) <- log(Mu.ice[ice.period[t]])
+    }
+    
+    for(p in 1:3){
+      Mu.ice[p] ~ dunif(0, ice.ideal*2)
+    }
+  }
+  
+  sigmaY.ice ~ dunif(0, 10)
+  
 })
 
 
@@ -511,7 +592,7 @@ seal.IPM <- nimbleCode({
 ###########################
 
 ## Function for simulating initial values
-source(paste0(CodePath, 'Seal_IPM_InitValSim_ext2.R'))
+source(paste0(CodePath, 'Seal_IPM_InitValSim_extraHData_ice.R'))
 
 ## Function for sampling and checking consistency of initial values
 initValSet <- function(data, constants){
@@ -549,10 +630,6 @@ Inits <- list(initValSet(data = seal.data, constants = seal.constants),
               initValSet(data = seal.data, constants = seal.constants),
               initValSet(data = seal.data, constants = seal.constants))
 
-## Change pup survival parameter bounds in constants
-seal.constants$S_pup.lLimit <- 0
-seal.constants$S_pup.uLimit <- 1
-
 ############
 # TEST RUN #
 ############
@@ -563,7 +640,7 @@ params <- c('SAD',
             'Mu.pMat', 'sigmaY.pMat',
             'pMat', 
             'pOvl', 'pPrg',
-            'Mu.S_pup', 'S_pup', 'sigmaY.m_pup',
+            'S_pup.ideal', 'S_pup',
             'estN.2002', 
             'YOY', 'SubA', 'nMatA', 'MatA',
             'mN_YOY', 'mN_SA', 'mN_MA',
@@ -572,17 +649,24 @@ params <- c('SAD',
             'alpha', 'D', 'H', 'extra_ACaH', 'u_nMat_H' 
             )
 
+## Add parameters for sea ice model
+if(TrendIceModel){
+  params <- c(params, c('ice', 'Mu.ice', 'beta.ice', 'sigmaY.ice'))
+}else{
+  params <- c(params, c('ice', 'Mu.ice', 'sigmaY.ice'))
+}
+
 ## MCMC specs
-niter <- 10
-nburnin <- 0
-nthin <- 1
-nchains <- 3
+#niter <- 10
+#nburnin <- 0
+#nthin <- 1
+#nchains <- 3
 #nchains <- 1
 
-#niter <- 100000
-#nburnin <- 30000
-#nthin <- 10
-#nchains <- 3
+niter <- 100000
+nburnin <- 30000
+nthin <- 10
+nchains <- 3
 
 ## Testrun
 testRun <- nimbleMCMC(code = seal.IPM, 
@@ -594,9 +678,9 @@ testRun <- nimbleMCMC(code = seal.IPM,
                       samplesAsCodaMCMC = TRUE, setSeed = mySeed)
 
 
-setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-save(testRun, file = '220406_Seal_IPM_noPeriodEff_ext2_noSADconstraint_pupTvar.RData')
+#setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
+saveRDS(testRun, file = '220429_IPMtest_eHAD_extraHData_ice.rds')
 
-pdf('220406_IPMtest_noPeriodEff_ext2_noSADconstraint_pupTvar_Traces.pdf', height = 8, width = 11)
+pdf('220429_IPMtest_eHAD_extraHData_ice_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
