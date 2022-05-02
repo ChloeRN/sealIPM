@@ -96,6 +96,7 @@ initValSim <- function(data, constants){
   
   ## Pup survival
   S_pup <- rep(NA, constants$sim_Tmax)
+  ice.ideal <- constants$Mu.ice.ideal
   
   for(t in 1:constants$sim_Tmax){
     S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, ice.ideal = ice.ideal, ice = ice.cov[t])
@@ -288,7 +289,7 @@ initValSim <- function(data, constants){
     sigmaY.pMat = sigmaY.pMat, epsilonY.pMat = epsilonY.pMat,
     sigmaY.m_pup = sigmaY.m_pup, epsilonY.m_pup = epsilonY.m_pup,
     
-    pMat = pMat, S_pup = S_pup,
+    pMat = pMat, S_pup = S_pup, ice.ideal = ice.ideal,
     
     estN.2002 = estN.2002, SAD = SAD, lambda_asym = as.numeric(eigen(projMat)$values[1]),
     

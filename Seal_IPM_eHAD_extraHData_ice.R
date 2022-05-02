@@ -29,7 +29,9 @@ sim_Tmax <- length(1981:2020)
 # Pup survival ~ sea ice
 Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
 sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
+
 ice.ideal <- median(IceData$fastice.mean[which(IceData$ice.period == 1)])# threshold ice extent above which conditions are considered ideal
+sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
 
 # First-year survival
 S_YOY.fix <- 0.75
@@ -106,7 +108,8 @@ seal.constants <- list(
   sdlog.m_pup = sdlog.m_pup,
   
   ice.period = IceData$ice.period,
-  ice.ideal = ice.ideal
+  Mu.ice.ideal = ice.ideal,
+  sdlog.ice_ideal = sdlog.ice_ideal
 )
 
 
@@ -546,6 +549,8 @@ seal.IPM <- nimbleCode({
   
   
   ## Fixed effects
+  ice.ideal ~ dlnorm(meanlog = Mu.ice.ideal, sdlog = sdlog.ice_ideal)
+  
   
   ## Random year variation
   
@@ -568,7 +573,7 @@ seal.IPM <- nimbleCode({
   if(TrendIceModel){
     ## Ice model - Trend
     log(ice.pred[1:sim_Tmax]) <- log(Mu.ice) + beta.ice*(1:sim_Tmax)
-    Mu.ice ~ dunif(0, ice.ideal*2)
+    Mu.ice ~ dunif(0, Mu.ice.ideal*2)
     beta.ice ~ dunif(-5, 0)
     
   } else {
@@ -578,7 +583,7 @@ seal.IPM <- nimbleCode({
     }
     
     for(p in 1:3){
-      Mu.ice[p] ~ dunif(0, ice.ideal*2)
+      Mu.ice[p] ~ dunif(0, Mu.ice.ideal*2)
     }
   }
   
@@ -640,7 +645,7 @@ params <- c('SAD',
             'Mu.pMat', 'sigmaY.pMat',
             'pMat', 
             'pOvl', 'pPrg',
-            'S_pup.ideal', 'S_pup',
+            'S_pup.ideal', 'S_pup', 'ice.ideal',
             'estN.2002', 
             'YOY', 'SubA', 'nMatA', 'MatA',
             'mN_YOY', 'mN_SA', 'mN_MA',
