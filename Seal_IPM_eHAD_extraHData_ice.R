@@ -549,7 +549,7 @@ seal.IPM <- nimbleCode({
   
   
   ## Fixed effects
-  ice.ideal ~ dlnorm(meanlog = Mu.ice.ideal, sdlog = sdlog.ice_ideal)
+  ice.ideal ~ dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal)
   
   
   ## Random year variation
@@ -684,8 +684,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220429_IPMtest_eHAD_extraHData_ice.rds')
+saveRDS(testRun, file = '220502_IPMtest_eHAD_extraHData_ice.rds')
 
-pdf('220429_IPMtest_eHAD_extraHData_ice_Traces.pdf', height = 8, width = 11)
+pdf('220502_IPMtest_eHAD_extraHData_ice_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()

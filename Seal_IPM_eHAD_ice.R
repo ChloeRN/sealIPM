@@ -525,7 +525,7 @@ seal.IPM <- nimbleCode({
   
   
   ## Fixed effects
-  ice.ideal ~ dlnorm(meanlog = Mu.ice.ideal, sdlog = sdlog.ice_ideal)
+  ice.ideal ~ dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal)
   
   
   ## Random year variation
