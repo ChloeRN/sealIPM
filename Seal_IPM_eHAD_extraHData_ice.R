@@ -45,6 +45,7 @@ S_MA.fix <- 0.92
 
 # Degree of uncertainty in fixed survival rates
 sdlog.m <- 0.10 # standard deviation of uncertainty in mortality hazard rate (on the log scale)
+#sdlog.m <- 0
 
 ## Make ice covariate
 ice.cov <- IceData$fastice.mean[1:sim_Tmax]
@@ -689,8 +690,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220502_IPMtest_eHAD_extraHData_ice_2.rds')
+saveRDS(testRun, file = '220503_IPMtest_eHAD_extraHData_ice_3.rds')
 
-pdf('220502_IPMtest_eHAD_extraHData_ice_2_Traces.pdf', height = 8, width = 11)
+pdf('220503_IPMtest_eHAD_extraHData_ice_3_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()

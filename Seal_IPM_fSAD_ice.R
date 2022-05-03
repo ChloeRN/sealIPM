@@ -31,8 +31,8 @@ Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
 sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
 
 ice.ideal <- median(IceData$fastice.mean[which(IceData$ice.period == 1)])# threshold ice extent above which conditions are considered ideal
-#sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
-sdlog.ice_ideal <- 0
+sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
+#sdlog.ice_ideal <- 0
 
 # First-year survival
 S_YOY.fix <- 0.75
@@ -647,8 +647,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220502_IPMtest_fSAD_ice_2.rds')
+saveRDS(testRun, file = '220503_IPMtest_fSAD_ice_3.rds')
 
-pdf('220502_IPMtest_fSAD_ice_2_Traces.pdf', height = 8, width = 11)
+pdf('220503_IPMtest_fSAD_ice_3_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
