@@ -31,7 +31,8 @@ Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
 sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
 
 ice.ideal <- median(IceData$fastice.mean[which(IceData$ice.period == 1)])# threshold ice extent above which conditions are considered ideal
-sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
+#sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
+sdlog.ice_ideal <- 0
 
 # First-year survival
 S_YOY.fix <- 0.75
@@ -41,6 +42,9 @@ S_SA.fix <- c(0.80, 0.82, 0.84, 0.86, 0.88)
 S_MA.fix <- 0.92
 # NOTE: The survival probabilities are fixed to similar numbers as used by
 # Reimer et al. 2019, Ecological Applications 29(3), e01855
+
+# Degree of uncertainty in fixed survival rates
+sdlog.m <- 0.10 # standard deviation of uncertainty in mortality hazard rate (on the log scale)
 
 ## Make ice covariate
 ice.cov <- IceData$fastice.mean[1:sim_Tmax]
@@ -62,6 +66,7 @@ seal.data <- list(
   S_YOY.fix = S_YOY.fix,
   S_SA.fix = S_SA.fix,
   S_MA.fix = S_MA.fix,
+  sdlog.m = sdlog.m,
   
   estN.mean = 3242, # Mean of estimated number of seals (males and females) from 2002 aerial survey
   estN.sd = 266, # Standard deviation of estimated number of seals (males and females) from 2002 aerial survey (NOTE: reported as se, but seems to actually be sd)
@@ -503,23 +508,26 @@ seal.IPM <- nimbleCode({
   
   
   # First-year survival & natural mortality
-  S_YOY <- S_YOY.fix
-  #S_YOY ~ dwhatever()
+  #S_YOY <- S_YOY.fix
+  S_YOY <- exp(-m_YOY)
+  m_YOY ~ dlnorm(meanlog = log(-log(S_YOY.fix)), sdlog = sdlog.m)
   
   mN_YOY ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_YOY))
   
   # Subadult survival & natural mortality
   for(a in 1:max.matA){
-    S_SA[a] <- S_SA.fix[a]
-    #S_SA[a] ~ dwhatever()
+    #S_SA[a] <- S_SA.fix[a]
+    S_SA[a] <- exp(-m_SA[a])
+    m_SA[a] ~ dlnorm(meanlog = log(-log(S_SA.fix[a])), sdlog = sdlog.m)
     
     mN_SA[a] ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_SA[a]))
   }
   
   
   # Adult survival & natural mortality
-  S_MA <- S_MA.fix
-  #S_MA ~ dwhatever()
+  #S_MA <- S_MA.fix
+  S_MA <- exp(-m_MA)
+  m_MA ~ dlnorm(meanlog = log(-log(S_MA.fix)), sdlog = sdlog.m)
   
   mN_MA ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_MA))
   
@@ -629,8 +637,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220502_IPMtest_eHAD_ice.rds')
+saveRDS(testRun, file = '220502_IPMtest_eHAD_ice_2.rds')
 
-pdf('220502_IPMtest_eHAD_ice_Traces.pdf', height = 8, width = 11)
+pdf('220502_IPMtest_eHAD_ice_2_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()

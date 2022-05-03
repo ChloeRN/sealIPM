@@ -12,7 +12,7 @@ initValSim <- function(data, constants){
   ice.cov <- data$ice
   for(t in 1:length(ice)){
     if(is.na(data$ice[t])){
-      ice[t] <- ice.cov[t] <- rnorm(1, mean = mean(data$ice, na.rm = T), sd = sd(data$ice, na.rm = t))
+      ice[t] <- ice.cov[t] <- rlnorm(1, mean = mean(log(data$ice), na.rm = T), sd = sd(log(data$ice), na.rm = T))
     }
   }
   
@@ -264,9 +264,10 @@ initValSim <- function(data, constants){
   InitVals <- list(
     Mu.pMat = Mu.pMat, pOvl = pOvl, pPrg = pPrg, 
     S_pup.ideal = S_pup.ideal, m_pup.ideal = -log(S_pup.ideal),
-    S_YOY = S_YOY, mN_YOY = mN_YOY, mH_YOY = mH_YOY,
-    S_SA = S_SA, mN_SA = mN_SA, mH_SA = mH_SA,
-    S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, alpha = alpha,
+    S_YOY = S_YOY, mN_YOY = mN_YOY, mH_YOY = mH_YOY, m_YOY = -log(S_YOY),
+    S_SA = S_SA, mN_SA = mN_SA, mH_SA = mH_SA, m_SA = -log(S_SA),
+    S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, m_MA = -log(S_MA),
+    alpha = alpha,
     
     sigmaY.pMat = sigmaY.pMat, epsilonY.pMat = epsilonY.pMat,
     
