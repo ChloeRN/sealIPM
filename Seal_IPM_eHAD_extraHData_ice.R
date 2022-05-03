@@ -369,7 +369,7 @@ seal.IPM <- nimbleCode({
   #-----------------------------------#
   
   for(t in (sim_Tmin+1):(sim_Tmax-1)){
-    no.H[t] ~ dpois((2*sum(H[1:(Amax-1),t])*r[t])/prop.Isfj)
+    no.H[t] ~ dpois((2*sum(H[1:Amax,t])*r[t])/prop.Isfj)
   }
     
   
@@ -493,8 +493,8 @@ seal.IPM <- nimbleCode({
   pACaH[1:(sim_Tmin-1)] <- 0
   
   for(t in sim_Tmin:(sim_Tmax-1)){
-    pACaH[t] <- no.ACaH[t]/sum(H[1:(Amax-1),t])
-    #pACaH[t] <- no.ACaH[t]/sum(H[2:(Amax-1),t])
+    pACaH[t] <- no.ACaH[t]/sum(H[1:Amax,t])
+    #pACaH[t] <- no.ACaH[t]/sum(H[2:Amax,t])
   }
   
   #*********#
