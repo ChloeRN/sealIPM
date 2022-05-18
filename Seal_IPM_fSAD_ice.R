@@ -18,7 +18,7 @@ CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
 mN.param.data <- readRDS(paste0(CodePath, '220119_mO_HoeningParameters_Seal.rds'))
 HarvestData <- readRDS(paste0(CodePath, '220204_HarvestCountData.rds'))
-IceData <- readRDS(paste0(DataPath, '220428_SealIPM_IceData.rds'))
+IceData <- readRDS(paste0(DataPath, '220509_SealIPM_IceData.rds'))
 
 ## Set parameters that are fixed a priori (but may be varied)
 
@@ -26,13 +26,9 @@ IceData <- readRDS(paste0(DataPath, '220428_SealIPM_IceData.rds'))
 sim_Tmin <- 2002 - 1981 + 1 
 sim_Tmax <- length(1981:2020) 
 
-# Pup survival ~ sea ice
+# Pup survival
 Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
 sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
-
-ice.ideal <- median(IceData$fastice.mean[which(IceData$ice.period == 1)])# threshold ice extent above which conditions are considered ideal
-sdlog.ice_ideal <- 0.2 # standard deviation of uncertainty in ideal sea ice threshold
-#sdlog.ice_ideal <- 0
 
 # First-year survival
 S_YOY.fix <- 0.75
@@ -46,9 +42,20 @@ S_MA.fix <- 0.92
 # Degree of uncertainty in fixed survival rates
 sdlog.m <- 0.10 # standard deviation of uncertainty in mortality hazard rate (on the log scale)
 
-## Make ice covariate
-ice.cov <- IceData$fastice.mean[1:sim_Tmax]
-ice.cov[which(IceData$ice.dataKeep==0)] <- NA
+
+## Set ice/habitat covariates, incl. ideal conditions
+ice.cov <- IceData$ice.GL.mean
+lairH.cov <- IceData$lairH.GL.mean
+
+ice.ideal <- quantile(ice.cov[which(IceData$ice.years < 2006)], probs = 0.75, na.rm = TRUE) # threshold ice extent above which conditions are considered ideal
+sdlog.ice_ideal <- 0.1 # log standard deviation of uncertainty in ideal sea ice threshold
+
+lairH.ideal <- quantile(lairH.cov[which(IceData$ice.years < 2006)], probs = 0.75, na.rm = TRUE) # threshold lair habitat above which conditions are considered ideal
+sdlog.lairH_ideal <- 0.1 # log standard deviation of uncertainty in ideal lair habitat threshold
+
+
+## Make dummy year covariate
+year.idx <- c(0:(sim_Tmax-1))
 
 # Ice model type switch (FALSE = period, TRUE = Trend)
 #TrendIceModel <- FALSE
@@ -82,7 +89,9 @@ seal.data <- list(
   count.Isfj = HarvestData$count.Isfj,
   count.all = HarvestData$count.all,
   
-  ice = ice.cov
+  ice = ice.cov,
+  lairH = lairH.cov,
+  year.idx = year.idx
 )
 
 seal.constants <- list(
@@ -545,7 +554,8 @@ seal.IPM <- nimbleCode({
   
   
   ## Fixed effects
-  ice.ideal ~ dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal)
+  ice.ideal ~ T(dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal), 0, 100) # Covariate = sea ice percentage
+  #ice.ideal ~ dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal) # Covariate = lair habitat
   
   
   ## Random year variation
@@ -560,12 +570,12 @@ seal.IPM <- nimbleCode({
   
   ## Data likelihood (imputation of missing values)
   for(t in 1:sim_Tmax){
-    ice[t] ~ dlnorm(meanlog = log(ice.pred[t]), sdlog = sigmaY.ice)
+    ice[t] ~ T(dlnorm(meanlog = log(ice.pred[t]), sdlog = sigmaY.ice), 0, 100)
   }
   
   if(TrendIceModel){
     ## Ice model - Trend
-    log(ice.pred[1:sim_Tmax]) <- log(Mu.ice) + beta.ice*(1:sim_Tmax)
+    log(ice.pred[1:sim_Tmax]) <- log(Mu.ice) + beta.ice*(year.idx[1:sim_Tmax])
     Mu.ice ~ dunif(0, Mu.ice.ideal*2)
     beta.ice ~ dunif(-5, 0)
     
@@ -576,7 +586,7 @@ seal.IPM <- nimbleCode({
     }
     
     for(p in 1:3){
-      Mu.ice[p] ~ dunif(0, Mu.ice.ideal*2)
+      Mu.ice[p] ~ dunif(0, 100)
     }
   }
   

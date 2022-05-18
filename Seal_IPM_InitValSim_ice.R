@@ -12,7 +12,7 @@ initValSim <- function(data, constants){
   ice.cov <- data$ice
   for(t in 1:length(ice)){
     if(is.na(data$ice[t])){
-      ice[t] <- ice.cov[t] <- rlnorm(1, mean = mean(log(data$ice), na.rm = T), sd = sd(log(data$ice), na.rm = T))
+      ice[t] <- ice.cov[t] <- EnvStats::rlnormTrunc(1, mean = mean(log(data$ice), na.rm = T), sd = sd(log(data$ice), na.rm = T), max = 100)
     }
   }
   
