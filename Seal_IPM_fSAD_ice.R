@@ -405,24 +405,7 @@ seal.IPM <- nimbleCode({
   
   ## Estimated population size during 2002 aerial survey
   estN.2002 ~ dnorm(mean = estN.mean, sd = estN.sd)
-  
-  
-  # Likelihood for harvest count data #
-  #-----------------------------------#
-  
-  for(t in (sim_Tmin+1):(sim_Tmax-1)){
-    no.H[t] ~ dpois((2*sum(H[1:(Amax-1),t])*r[t])/prop.Isfj)
-  }
-    
-  
-  # Likelihood for harvest age structure data #
-  #-------------------------------------------#
-  
-  for(t in sim_Tmin:(sim_Tmax-1)){
-    for(a in 1:(Amax-1)){
-      ACaH[a,t] ~ dpois(H[a,t]*pACaH[t])
-    }
-  }
+
   
   # Likelihood for maturation data #
   #--------------------------------#
@@ -509,15 +492,6 @@ seal.IPM <- nimbleCode({
   # NOTE: This could alternatively be formulated as a stochastic relationship:
   #       e.g. count.Isfj[x] ~ dbin(prop.Isfj, count.all[x])
   
-  
-  # Proportion of the harvest represented in ACaH data #
-  #----------------------------------------------------#
-  
-  pACaH[1:(sim_Tmin-1)] <- 0
-  
-  for(t in sim_Tmin:(sim_Tmax-1)){
-    pACaH[t] <- no.ACaH[t]/sum(H[1:(Amax-1),t])
-  }
   
   #*********#
   # PRIORS  #                                                          
