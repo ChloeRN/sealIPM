@@ -77,21 +77,21 @@ initValSim <- function(data, constants){
   
   ## Maturation rates
   sigmaY.pMat <- runif(1, 0.01, 0.1)
-  epsilonY.pMat <- rep(0, constants$Tmax)
+  epsilonY.pMat <- rep(0, constants$sim_Tmax)
   
   
   # 1.3) Time-dependent vital rates
   
   ## Maturation rates 
-  pMat <- matrix(0, nrow = constants$max.matA+1, ncol = constants$Tmax)
+  pMat <- matrix(0, nrow = constants$max.matA+1, ncol = constants$sim_Tmax)
   
-  for(t in 1:constants$Tmax){
+  for(t in 1:constants$sim_Tmax){
     for(a in constants$min.matA:constants$max.matA){
       pMat[a, t] <- icloglog(cloglog(Mu.pMat[a]) + epsilonY.pMat[t])
     }
   }
   
-  pMat[constants$max.matA+1, 1:constants$Tmax] <- 1
+  pMat[constants$max.matA+1, 1:constants$sim_Tmax] <- 1
   
   ## Pup survival
   S_pup <- rep(NA, constants$sim_Tmax)
@@ -116,24 +116,24 @@ initValSim <- function(data, constants){
   SAD <- as.numeric(eigen(projMat)$vectors[,1]/sum(eigen(projMat)$vectors[,1]))
   
   # 2.3) Set inital numbers of individuals in each class
-  YOY <- rep(NA, constants$Tmax)
+  YOY <- rep(NA, constants$sim_Tmax)
   YOY[constants$sim_Tmin] <- round(estN.2002*SAD[1]*0.5)
   
-  SubA <- matrix(NA, nrow = constants$SA_Amax, ncol = constants$Tmax)
+  SubA <- matrix(NA, nrow = constants$SA_Amax, ncol = constants$sim_Tmax)
   SubA[,constants$sim_Tmin] <- round(estN.2002*SAD[2:(constants$SA_Amax+1)]*0.5)
   
-  nMatA <- rep(NA, constants$Tmax)
+  nMatA <- rep(NA, constants$sim_Tmax)
   nMatA[constants$sim_Tmin] <- round(estN.2002*SAD[constants$Amax-1]*0.5)
   
-  MatA <- rep(NA, constants$Tmax)
+  MatA <- rep(NA, constants$sim_Tmax)
   MatA[constants$sim_Tmin] <- round(estN.2002*SAD[constants$Amax]*0.5)
   
   # 2.4) Prepare additional vectors/matrixes for storing results
-  Surv_SubA <- Mat_SubA <- matrix(NA, nrow = constants$SA_Amax+1, ncol = constants$Tmax)
+  Surv_SubA <- Mat_SubA <- matrix(NA, nrow = constants$SA_Amax+1, ncol = constants$sim_Tmax)
   Surv_SubA[1,] <- Mat_SubA[1,] <- 0
-  Surv_nMatA <- Surv_MatA <- R_Mat <- R_nMat <- Ntot <- rep(NA, constants$Tmax)
-  lambda_real <- rep(NA, constants$Tmax-1)
-  D <- H <- matrix(NA, nrow = constants$Amax-1, ncol = constants$Tmax-1)
+  Surv_nMatA <- Surv_MatA <- R_Mat <- R_nMat <- Ntot <- rep(NA, constants$sim_Tmax)
+  lambda_real <- rep(NA, constants$sim_Tmax-1)
+  D <- H <- matrix(NA, nrow = constants$Amax-1, ncol = constants$sim_Tmax-1)
   
   # 2.5) Set values prior to simulation start to 0
   YOY[1:(constants$sim_Tmin-1)] <- 0

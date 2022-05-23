@@ -67,23 +67,28 @@ S_MA.fix <- 0.92
 sdlog.m <- 0.10 # standard deviation of uncertainty in mortality hazard rate (on the log scale)
 
 
-## Set ice/habitat covariates, incl. ideal conditions
-ice.cov <- IceData$ice.GL.mean
-lairH.cov <- IceData$lairH.GL.mean
+## Set env. covariate incl. ideal conditions
+if(IceCov){
+  env.cov <- c(IceData$ice.GL.mean, rep(NA, sim_extraYears))
+}else{
+  env.cov <- c(IceData$lairH.GL.mean, rep(NA, sim_extraYears))
+}
 
-ice.ideal <- quantile(ice.cov[which(IceData$ice.years < 2006)], probs = 0.75, na.rm = TRUE) # threshold ice extent above which conditions are considered ideal
-sdlog.ice_ideal <- 0.1 # log standard deviation of uncertainty in ideal sea ice threshold
+env.period <- c(IceData$ice.period, rep(3, sim_extraYears))
+
+env.cov <- env.cov[1:sim_Tmax]
+env.period <- env.period[1:sim_Tmax]
 
 env.ideal <- quantile(env.cov[which(IceData$ice.years < 2006)], probs = 0.75, na.rm = TRUE) # threshold env. conditions which are considered ideal
 sdlink.env_ideal <- 0.1 # standard deviation of uncertainty in ideal env. conditions on the link scale (= log)
 
 
 ## Make dummy year covariate
-year.idx <- c(0:(sim_Tmax-1))
-
-# Ice model type switch (FALSE = period, TRUE = Trend)
-#TrendIceModel <- FALSE
-TrendIceModel <- TRUE
+if(StableFuture){
+  year.idx <- c(1:length(1981:2020), rep(length(1981:2020), sim_extraYears))
+}else{
+  year.idx <- c(1:sim_Tmax)
+}
 
 ## Assemble data and constants
 seal.data <- list(
@@ -436,20 +441,20 @@ seal.IPM <- nimbleCode({
   #------------------#
 
   ## Age classes 1 & 2 (constrained immature)
-  pMat[1:(min.matA-1), 1:Tmax] <- 0
+  pMat[1:(min.matA-1), 1:sim_Tmax] <- 0
     
   ## Age classes 3-5 (estimated)
-  for(t in 1:Tmax){
+  for(t in 1:sim_Tmax){
     for(a in min.matA:max.matA){
       cloglog(pMat[a, t]) <- cloglog(Mu.pMat[a]) + epsilonY.pMat[t]
     }
   }
 
   ## Age class 9+ (constrained mature)
-  pMat[max.matA+1, 1:Tmax] <- 1
+  pMat[max.matA+1, 1:sim_Tmax] <- 1
   
   ## Random year effects
-  for(t in 1:Tmax){
+  for(t in 1:sim_Tmax){
     epsilonY.pMat[t] ~ dnorm(0, sd = sigmaY.pMat)
   }
   
@@ -609,6 +614,8 @@ source(paste0(CodePath, 'Seal_IPM_InitValSim_ice.R'))
 #Inits <- list(initValSim(data = seal.data, constants = seal.constants))
 Inits <- list(initValSim(data = seal.data, constants = seal.constants),
               initValSim(data = seal.data, constants = seal.constants),
+              initValSim(data = seal.data, constants = seal.constants),
+              initValSim(data = seal.data, constants = seal.constants),
               initValSim(data = seal.data, constants = seal.constants))
 
 ############
@@ -621,7 +628,7 @@ params <- c('lambda_asym', 'SAD',
             'Mu.pMat', 'sigmaY.pMat',
             'pMat', 
             'pOvl', 'pPrg',
-            'S_pup.ideal', 'S_pup', 'ice.ideal',
+            'S_pup.ideal', 'S_pup', 'env.ideal',
             'estN.2002', 
             'YOY', 'SubA', 'nMatA', 'MatA',
             'mN_YOY', 'mN_SA', 'mN_MA',
@@ -647,7 +654,7 @@ if(TrendIceModel){
 niter <- 100000
 nburnin <- 30000
 nthin <- 10
-nchains <- 3
+nchains <- 5
 
 ## Testrun
 testRun <- nimbleMCMC(code = seal.IPM, 
@@ -660,8 +667,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220503_IPMtest_fSAD_ice_3.rds')
+saveRDS(testRun, file = '220520_IPMtest_fSAD_iceSim.rds')
 
-pdf('220503_IPMtest_fSAD_ice_3_Traces.pdf', height = 8, width = 11)
+pdf('220520_IPMtest_fSAD_iceSim.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
