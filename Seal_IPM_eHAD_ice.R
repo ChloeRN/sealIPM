@@ -20,6 +20,27 @@ mN.param.data <- readRDS(paste0(CodePath, '220119_mO_HoeningParameters_Seal.rds'
 HarvestData <- readRDS(paste0(CodePath, '220204_HarvestCountData.rds'))
 IceData <- readRDS(paste0(DataPath, '220509_SealIPM_IceData.rds'))
 
+## Set model switches
+
+# Ice model type switch
+# FALSE = period
+# TRUE = Trend
+TrendIceModel <- TRUE
+#TrendIceModel <- FALSE
+
+# Ice/lair habitat covariate switch
+# TRUE = pup survival is a function of sea ice availability
+# FALSE = pup survival is a function of lair habitat availability
+IceCov <- TRUE
+# IceCov <- FALSE
+
+# Environmental change scenario switch
+# TRUE = Simulated future years will have same env. conditions on average as last year with data (2020)
+# FALSE = Simulated future years will have env. conditions that continue deteriorating
+StableFuture <- TRUE
+#StableFuture <- FALSE
+
+
 ## Set parameters that are fixed a priori (but may be varied)
 
 # Start and end years for population model
@@ -89,8 +110,7 @@ seal.data <- list(
   count.Isfj = HarvestData$count.Isfj,
   count.all = HarvestData$count.all,
   
-  ice = ice.cov,
-  lairH = lairH.cov,
+  env = env.cov,
   year.idx = year.idx
 )
 
@@ -118,9 +138,9 @@ seal.constants <- list(
   Mu.S_pup.ideal = Mu.S_pup.ideal,
   sdlog.m_pup = sdlog.m_pup,
   
-  ice.period = IceData$ice.period,
-  Mu.ice.ideal = ice.ideal,
-  sdlog.ice_ideal = sdlog.ice_ideal
+  env.period = env.period,
+  Mu.env.ideal = env.ideal,
+  sdlink.env_ideal = sdlink.env_ideal
 )
 
 
@@ -169,18 +189,18 @@ make.sealPM <- nimbleFunction(
 calc.S_pup <- nimbleFunction(
   
   run = function(S_pup.ideal = double(0),
-                 ice.ideal = double(0),
-                 ice = double(0)) {
+                 env.ideal = double(0),
+                 env = double(0)) {
     
-    # Calculate sea ice factor
-    if(ice <= ice.ideal){
-      P_ice <- ice/ice.ideal
+    # Calculate environment factor
+    if(env <= env.ideal){
+      P_env <- env/env.ideal
     }else{
-      P_ice <- 1
+      P_env <- 1
     }
     
-    # Calculate survival probability and multiply by ice factor
-    S_pup <- S_pup.ideal*P_ice
+    # Calculate survival probability and multiply by environment factor
+    S_pup <- S_pup.ideal*P_env
     
     # Return matrix
     return(S_pup)
@@ -439,7 +459,7 @@ seal.IPM <- nimbleCode({
   
   # Year-specific pup survival (dependent on sea ice)
   for(t in 1:sim_Tmax){
-    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, ice.ideal = ice.ideal, ice = ice[t])
+    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, env.ideal = env.ideal, env = env[t])
   }
   
   
@@ -542,9 +562,8 @@ seal.IPM <- nimbleCode({
   
   
   ## Fixed effects
-  ice.ideal ~ T(dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal), 0, 100) # Covariate = sea ice percentage
-  #ice.ideal ~ T(dlnorm(meanlog = log(Mu.ice.ideal), sdlog = sdlog.ice_ideal), 0, Inf) # Covariate = lair habitat
-  
+  env.ideal ~ dlnorm(meanlog = log(Mu.env.ideal), sdlog = sdlink.env_ideal) 
+
   
   ## Random year variation
   
@@ -552,33 +571,40 @@ seal.IPM <- nimbleCode({
   sigmaY.pMat ~ dunif(0, 5)
   
   
-  #**************************#
-  # SEA ICE COVARIATE MODEL  #                                                          
-  #**************************#
+  #********************************#
+  # ENVIRONMENTAL COVARIATE MODEL  #                                                          
+  #********************************#
   
   ## Data likelihood (imputation of missing values)
   for(t in 1:sim_Tmax){
-    ice[t] ~ T(dlnorm(meanlog = log(ice.pred[t]), sdlog = sigmaY.ice), 0, 100)
+    env[t] ~ dlnorm(meanlog = log(env.pred[t]), sdlog = sigmaY.env)
   }
   
   if(TrendIceModel){
-    ## Ice model - Trend
-    log(ice.pred[1:sim_Tmax]) <- log(Mu.ice) + beta.ice*(year.idx[1:sim_Tmax])
-    Mu.ice ~ dunif(0, Mu.ice.ideal*2)
-    beta.ice ~ dunif(-5, 0)
     
-  } else {
+    ## Ice model - Trend
+    log(env.pred[1:sim_Tmax]) <- log(Mu.env) + beta.env*(year.idx[1:sim_Tmax])
+    
+    Mu.env ~ dunif(0, Mu.env.ideal*2)
+    beta.env ~ dunif(-5, 0)
+    
+  }else{
+
     ## Ice model - Period
     for(t in 1:sim_Tmax){
-      log(ice.pred[t]) <- log(Mu.ice[ice.period[t]])
+      env.pred[t] <- Mu.env[env.period[t]]
     }
     
     for(p in 1:3){
-      Mu.ice[p] ~ dunif(0, 100)
+      if(IceCov){
+        Mu.env[p] ~ dunif(0, 100)
+      }else{
+        Mu.env[p] ~ dunif(0, Mu.env.ideal*2)
+      }
     }
   }
   
-  sigmaY.ice ~ dunif(0, 10)
+  sigmaY.env ~ dunif(0, 10)
   
 })
 
@@ -617,9 +643,9 @@ params <- c('SAD',
 
 ## Add parameters for sea ice model
 if(TrendIceModel){
-  params <- c(params, c('ice', 'Mu.ice', 'beta.ice', 'sigmaY.ice'))
+  params <- c(params, c('env', 'Mu.env', 'beta.env', 'sigmaY.env'))
 }else{
-  params <- c(params, c('ice', 'Mu.ice', 'sigmaY.ice'))
+  params <- c(params, c('env', 'Mu.env', 'sigmaY.env'))
 }
 
 ## MCMC specs

@@ -8,23 +8,25 @@ initValSim <- function(data, constants){
   #---------------------------------#
   
   # 0.1) Missing covariate values
-  ice <- rep(NA, length(data$ice))
-  ice.cov <- data$ice
-  for(t in 1:length(ice)){
-    if(is.na(data$ice[t])){
-      ice[t] <- ice.cov[t] <- EnvStats::rlnormTrunc(1, mean = mean(log(data$ice), na.rm = T), sd = sd(log(data$ice), na.rm = T), max = 100)
+  env <- rep(NA, length(data$env))
+  env.cov <- data$env
+  for(t in 1:length(env)){
+    if(is.na(data$env[t])){
+      env.upper <- ifelse(IceCov, 1, max(data$env, na.rm = TRUE))
+      env[t] <- env.cov[t] <- EnvStats::rlnormTrunc(1, mean = mean(log(data$env), na.rm = T), sd = sd(log(data$env), na.rm = T), max = env.upper)
     }
   }
   
+  
   # 0.2) Ice model parameters
   if(TrendIceModel){
-    Mu.ice <- runif(1, max(data$ice, na.rm = T)*0.9, max(data$ice, na.rm = T)*1.1)
+    Mu.env <- runif(1, max(data$env, na.rm = T)*0.9, max(data$env, na.rm = T)*1.1)
   }else{
-    Mu.ice <- runif(3, mean(data$ice, na.rm = T)*0.9, mean(data$ice, na.rm = T)*1.1)
+    Mu.env <- runif(3, mean(data$env, na.rm = T)*0.9, mean(data$env, na.rm = T)*1.1)
   }
   
-  beta.ice <- runif(1, -0.1, 0)
-  sigmaY.ice <- runif(1, 0, 2)
+  beta.env <- runif(1, -0.1, 0)
+  sigmaY.env <- runif(1, 0, 2)
   
   #-----------------------------------------------------------------------
   
@@ -93,10 +95,10 @@ initValSim <- function(data, constants){
   
   ## Pup survival
   S_pup <- rep(NA, constants$sim_Tmax)
-  ice.ideal <- constants$Mu.ice.ideal
+  env.ideal <- constants$Mu.env.ideal
   
   for(t in 1:constants$sim_Tmax){
-    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, ice.ideal = ice.ideal, ice = ice.cov[t])
+    S_pup[t] <- calc.S_pup(S_pup.ideal = S_pup.ideal, env.ideal = env.ideal, env = env.cov[t])
   }
   
   #-----------------------------------------------------------------------
@@ -271,7 +273,7 @@ initValSim <- function(data, constants){
     
     sigmaY.pMat = sigmaY.pMat, epsilonY.pMat = epsilonY.pMat,
     
-    pMat = pMat, S_pup = S_pup, ice.ideal = ice.ideal,
+    pMat = pMat, S_pup = S_pup, env.ideal = unname(env.ideal),
     
     estN.2002 = estN.2002, SAD = SAD, lambda_asym = as.numeric(eigen(projMat)$values[1]),
     
@@ -285,8 +287,8 @@ initValSim <- function(data, constants){
     
     pACaH = pACaH,
     
-    ice = ice,
-    Mu.ice = Mu.ice, beta.ice = beta.ice, sigmaY.ice = sigmaY.ice
+    env = env,
+    Mu.env = Mu.env, beta.env = beta.env, sigmaY.env = sigmaY.env
   )
   
   return(InitVals)
