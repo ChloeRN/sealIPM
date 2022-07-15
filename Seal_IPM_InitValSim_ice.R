@@ -50,28 +50,46 @@ initValSim <- function(data, constants){
   S_pup.ideal <- constants$Mu.S_pup.ideal
   
   ## First-year survival and natural & harvest mortality 
-  S_YOY <- data$S_YOY.fix
+  # Estimation period
+  S_YOY <- c(data$S_YOY.fix, NA)
   mN_YOY <- runif(1, exp(data$mN.logmean-2*data$mN.logsd), -log(S_YOY))
   mH_YOY <- -log(S_YOY) - mN_YOY
   
+  # Simulation period
+  mH_YOY[2] <- mH_YOY[1]*data$mH.fac
+  S_YOY[2] <- exp(-(mH_YOY[2] + mN_YOY))
+  
   ## Subadult survival & natural mortality
-  S_SA <- data$S_SA.fix
-  mN_SA <- rep(NA, length(S_SA))
-  for(a in 1:length(S_SA)){
-    mN_SA[a] <- runif(1, exp(data$mN.logmean-2*data$mN.logsd), -log(S_SA[a]))
+  # Estimation period
+  S_SA <- matrix(c(data$S_SA.fix, rep(NA, constants$SA_Amax)), ncol = 2)
+  mN_SA <- rep(NA, nrow(S_SA))
+  for(a in 1:nrow(S_SA)){
+    mN_SA[a] <- runif(1, exp(data$mN.logmean-2*data$mN.logsd), -log(S_SA[a,1]))
   }
   mH_SA <- -log(S_SA) - mN_SA
   
+  # Simulation period
+  mH_SA[,2] <- mH_SA[,1]*data$mH.fac
+  S_SA[,2] <- exp(-(mH_SA[,2] + mN_SA))
+  
+  
   ## Adult survival & natural mortality
-  S_MA <- data$S_MA.fix
+  # Estimation period
+  S_MA <- c(data$S_MA.fix, NA)
   mN_MA <- runif(1, exp(data$mN.logmean-2*data$mN.logsd), -log(S_MA))
   mH_MA <- -log(S_MA) - mN_MA
   
+  # Simulation period
+  mH_MA[2] <- mH_MA[1]*data$mH.fac
+  S_MA[2] <- exp(-(mH_MA[2] + mN_MA))
+  
   ## Proportions dying due to harvest
-  alpha <- rep(NA, (constants$Amax-1))
-  alpha[1] <- mH_YOY/(mH_YOY+mN_YOY) 
-  alpha[2:(constants$max.matA+1)] <- mH_SA[1:constants$max.matA]/(mH_SA[1:constants$max.matA]+mN_SA[1:constants$max.matA]) 
-  alpha[constants$Amax-1] <- mH_MA/(mH_MA+mN_MA)
+  alpha <- matrix(NA, nrow = constants$Amax-1, ncol = 2)
+  for(i in 1:2){
+    alpha[1,i] <- mH_YOY[i]/(mH_YOY[i]+mN_YOY) 
+    alpha[2:(constants$max.matA+1),i] <- mH_SA[1:constants$max.matA,i]/(mH_SA[1:constants$max.matA,i]+mN_SA[1:constants$max.matA]) 
+    alpha[constants$Amax-1,i] <- mH_MA[i]/(mH_MA[i]+mN_MA)
+  }
   
   # 1.2) Vital rate standard deviations and random effects
   
@@ -110,7 +128,7 @@ initValSim <- function(data, constants){
   estN.2002 <- rnorm(1, mean = data$estN.mean, sd = data$estN.sd)
   
   # 2.2) Extract stable ageclass distribution from projection matrix
-  projMat <- make.sealPM(S_YOY = S_YOY, S_SA = S_SA[1:constants$SA_Amax], S_MA = S_MA, 
+  projMat <- make.sealPM(S_YOY = S_YOY[1], S_SA = S_SA[1:constants$SA_Amax,1], S_MA = S_MA[1], 
                          pMat = Mu.pMat[1:constants$SA_Amax], 
                          pOvl = pOvl, pPrg = pPrg, S_pup = S_pup[constants$sim_Tmin+1])
   SAD <- as.numeric(eigen(projMat)$vectors[,1]/sum(eigen(projMat)$vectors[,1]))
@@ -167,12 +185,12 @@ initValSim <- function(data, constants){
     
     ## Age 1-5 subadults
     for(a in 1:constants$SA_Amax){
-      Surv_SubA[a+1, t+1] <- rbinom(1, SubA[a, t], S_SA[a])
+      Surv_SubA[a+1, t+1] <- rbinom(1, SubA[a, t], S_SA[a, constants$p.idx[t]])
     }
     
     ## (Newly) mature adults --> mature adults
-    Surv_nMatA[t+1] <- rbinom(1, nMatA[t], S_MA)
-    Surv_MatA[t+1] <- rbinom(1, MatA[t], S_MA)
+    Surv_nMatA[t+1] <- rbinom(1, nMatA[t], S_MA[constants$p.idx[t]])
+    Surv_MatA[t+1] <- rbinom(1, MatA[t], S_MA[constants$p.idx[t]])
     
     MatA[t+1] <- Surv_nMatA[t+1] + Surv_MatA[t+1]
     
@@ -192,9 +210,13 @@ initValSim <- function(data, constants){
     
     ## Number that died due to harvest
     for(a in 1:(constants$Amax-1)){
-      #H[a,t] <- rbinom(1, D[a,t], alpha[a])
-      H[a,t] <- extraDistr::rtbinom(1, D[a,t], alpha[a], a = 0, b = Inf)
-      # NOTE: Using a truncated binomial here to avoid sampling H = 0 when D > 0
+      
+      if(t > constants$Tmax & HarvestScen == 'None'){
+        H[a,t] <- 0
+      }else{
+        H[a,t] <- extraDistr::rtbinom(1, D[a,t], alpha[a, constants$p.idx[t]], a = 0, b = Inf)
+        # NOTE: Using a truncated binomial here to avoid sampling H = 0 when D > 0
+      }
     }
     
     
@@ -266,9 +288,9 @@ initValSim <- function(data, constants){
   InitVals <- list(
     Mu.pMat = Mu.pMat, pOvl = pOvl, pPrg = pPrg, 
     S_pup.ideal = S_pup.ideal, m_pup.ideal = -log(S_pup.ideal),
-    S_YOY = S_YOY, mN_YOY = mN_YOY, mH_YOY = mH_YOY, m_YOY = -log(S_YOY),
-    S_SA = S_SA, mN_SA = mN_SA, mH_SA = mH_SA, m_SA = -log(S_SA),
-    S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, m_MA = -log(S_MA),
+    S_YOY = S_YOY, mN_YOY = mN_YOY, mH_YOY = mH_YOY, m_YOY = -log(S_YOY[1]),
+    S_SA = S_SA, mN_SA = mN_SA, mH_SA = mH_SA, m_SA = -log(S_SA[,1]),
+    S_MA = S_MA, mN_MA = mN_MA, mH_MA = mH_MA, m_MA = -log(S_MA[1]),
     alpha = alpha,
     
     sigmaY.pMat = sigmaY.pMat, epsilonY.pMat = epsilonY.pMat,

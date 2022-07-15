@@ -40,6 +40,10 @@ IceCov <- TRUE
 StableFuture <- TRUE
 #StableFuture <- FALSE
 
+# Harvest scenario
+#HarvestScen <- 'No change'
+HarvestScen <- 'Halved'
+#HarvestScen <- 'None'
 
 ## Set parameters that are fixed a priori (but may be varied)
 
@@ -90,6 +94,13 @@ if(StableFuture){
   year.idx <- c(1:sim_Tmax)
 }
 
+## Set harvest perturbation factor
+if(HarvestScen == 'No change'){mH.fac <- 1}
+if(HarvestScen == 'Halved'){mH.fac <- 0.5}
+if(HarvestScen == 'None'){mH.fac <- 0}
+
+## Make dummy estimation vs. simulation period covariate
+p.idx <- c(rep(1, length(1981:2020)), rep(2, sim_extraYears))
 
 ## Assemble data and constants
 seal.data <- list(
@@ -120,7 +131,9 @@ seal.data <- list(
   count.all = HarvestData$count.all,
   
   env = env.cov,
-  year.idx = year.idx
+  year.idx = year.idx,
+  
+  mH.fac = mH.fac
 )
 
 seal.constants <- list(
@@ -149,7 +162,9 @@ seal.constants <- list(
   
   env.period = env.period,
   Mu.env.ideal = env.ideal,
-  sdlink.env_ideal = sdlink.env_ideal
+  sdlink.env_ideal = sdlink.env_ideal,
+  
+  p.idx = p.idx
 )
 
 
@@ -283,16 +298,16 @@ seal.IPM <- nimbleCode({
     #---------------------------#
     
     ## Young-of-the-year --> age 1 subadults
-    SubA[1, t+1] ~ dbin(S_YOY, YOY[t])
+    SubA[1, t+1] ~ dbin(S_YOY[p.idx[t]], YOY[t])
     
     ## Age 1-5 subadults
     for(a in 1:SA_Amax){
-      Surv_SubA[a+1, t+1] ~ dbin(S_SA[a], SubA[a, t])
+      Surv_SubA[a+1, t+1] ~ dbin(S_SA[a,p.idx[t]], SubA[a, t])
     }
     
     ## (Newly) mature adults --> mature adults
-    Surv_nMatA[t+1] ~ dbin(S_MA, nMatA[t])
-    Surv_MatA[t+1] ~ dbin(S_MA, MatA[t])
+    Surv_nMatA[t+1] ~ dbin(S_MA[p.idx[t]], nMatA[t])
+    Surv_MatA[t+1] ~ dbin(S_MA[p.idx[t]], MatA[t])
     
     MatA[t+1] <- Surv_nMatA[t+1] + Surv_MatA[t+1]
 
@@ -313,7 +328,7 @@ seal.IPM <- nimbleCode({
   
     ## Number that died due to harvest
     for(a in 1:(Amax-1)){
-      H[a,t] ~ dbin(alpha[a], D[a,t])
+      H[a,t] ~ dbin(alpha[a,p.idx[t]], D[a,t])
     }
 
     
@@ -476,21 +491,35 @@ seal.IPM <- nimbleCode({
   #--------------------------#
   
   ## Proportion dying due to harvest
-  alpha[1] <- mH_YOY/(mH_YOY+mN_YOY) 
-  alpha[2:(max.matA+1)] <- mH_SA[1:max.matA]/(mH_SA[1:max.matA]+mN_SA[1:max.matA]) 
-  alpha[Amax-1] <- mH_MA/(mH_MA+mN_MA)
+  for(i in 1:2){
+    alpha[1,i] <- mH_YOY[i]/(mH_YOY[i]+mN_YOY) 
+    alpha[2:(max.matA+1),i] <- mH_SA[1:max.matA,i]/(mH_SA[1:max.matA,i]+mN_SA[1:max.matA]) 
+    alpha[Amax-1,i] <- mH_MA[i]/(mH_MA[i]+mN_MA)
+  }
   
-  ## Harvest mortality
-  
+  ## Harvest mortality - Study period
+
   # First-year
-  mH_YOY <- -log(S_YOY) - mN_YOY
+  mH_YOY[1] <- -log(S_YOY[1]) - mN_YOY
+    
+  # Subadults
+  mH_SA[1:max.matA, 1] <- mH_MA[1]
+    
+  # Adults
+  mH_MA[1] <- -log(S_MA[1]) - mN_MA
+  
+  ## Harvest mortality - Simulation period
+  # First-year
+  mH_YOY[2] <- mH_YOY[1]*mH.fac
+  S_YOY[2] <- exp(-(mH_YOY[2] + mN_YOY))
   
   # Subadults
-  #mH_SA[1:max.matA] <- -log(S_SA[1:max.matA]) - mN_SA[1:max.matA]
-  mH_SA[1:max.matA] <- mH_MA
+  mH_SA[1:max.matA, 2] <- mH_MA[2]
+  S_SA[1:max.matA, 2] <- exp(-(mH_SA[1:max.matA, 2] + mN_SA[1:max.matA])) 
   
   # Adults
-  mH_MA <- -log(S_MA) - mN_MA
+  mH_MA[2] <- mH_MA[1]*mH.fac
+  S_MA[2] <- exp(-(mH_MA[2] + mN_MA))
   
   
   # Proportion harvested in Isfjorden area #
@@ -547,27 +576,27 @@ seal.IPM <- nimbleCode({
   
   # First-year survival & natural mortality
   #S_YOY <- S_YOY.fix
-  S_YOY <- exp(-m_YOY)
+  S_YOY[1] <- exp(-m_YOY)
   m_YOY ~ dlnorm(meanlog = log(-log(S_YOY.fix)), sdlog = sdlog.m)
   
-  mN_YOY ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_YOY))
+  mN_YOY ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_YOY[1]))
   
   # Subadult survival & natural mortality
   for(a in 1:max.matA){
     #S_SA[a] <- S_SA.fix[a]
-    S_SA[a] <- exp(-m_SA[a])
+    S_SA[a,1] <- exp(-m_SA[a])
     m_SA[a] ~ dlnorm(meanlog = log(-log(S_SA.fix[a])), sdlog = sdlog.m)
     
-    mN_SA[a] ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_SA[a]))
+    mN_SA[a] ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_SA[a,1]))
   }
   
   
   # Adult survival & natural mortality
   #S_MA <- S_MA.fix
-  S_MA <- exp(-m_MA)
+  S_MA[1] <- exp(-m_MA)
   m_MA ~ dlnorm(meanlog = log(-log(S_MA.fix)), sdlog = sdlog.m)
   
-  mN_MA ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_MA))
+  mN_MA ~ T(dlnorm(meanlog = mN.logmean, sdlog = mN.logsd), 0, -log(S_MA[1]))
   
   
   ## Fixed effects
@@ -682,8 +711,8 @@ testRun <- nimbleMCMC(code = seal.IPM,
 
 
 #setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220520_IPMtest_eHAD_iceSim.rds')
+saveRDS(testRun, file = '220524_IPMtest_eHAD_iceSim_halfH.rds')
 
-pdf('220520_IPMtest_eHAD_iceSim_Traces.pdf', height = 8, width = 11)
+pdf('220524_IPMtest_eHAD_iceSim_halfH_Traces.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
