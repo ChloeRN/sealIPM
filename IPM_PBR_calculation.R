@@ -4,34 +4,86 @@ library(viridis)
 library(gridExtra)
 library(magrittr)
 
-## Load posterior samples from model run
-load('220125_Seal_IPM_noPeriodEff_Test.RData')
-#load('220125_Seal_IPM_noPeriodEff_unknownSpup_Test.RData')
 
+####################################
+# SETTING UP POSTERIOR PREDICTIONS #
+####################################
+
+## Load posterior samples from model run
+testRun <- readRDS('220718_IPMtest_fSAD&eHAD_iceSim.rds')
 out.mat <- as.matrix(testRun)
 
-## Calculation of (posterior distributions for) Nmin and Rmax
-
-# Set variable names to consider
+## Set time-span to consider
 Tmin <- 22
 Tmax <- 40
-Ntot.names <- paste0('Ntot[', Tmin:Tmax, ']')
-lambda.names <- paste0('lambda_real[', Tmin:(Tmax-1), ']')
 
-# Extract maximum and mean realized lambda for each posterior sample 
-rlambda_max <- apply(out.mat[, lambda.names], 1, max)
-rlambda_mean <- apply(out.mat[, lambda.names], 1, mean)
+## Nimble function for assembling seal projection matrix
+make.sealPM <- nimbleFunction(
+  
+  run = function(S_YOY = double(0),
+                 S_SA = double(1),
+                 S_MA = double(0),
+                 pMat = double(1),
+                 pOvl = double(0),
+                 pPrg = double(0),
+                 S_pup = double(0)) {
+    
+    
+    # Specify matrix of correct dimensions
+    A <- matrix(0, nrow = 8, ncol = 8)
+    
+    # Add reproduction components
+    A[1,7] <- pPrg*S_MA*0.5*S_pup # Offspring production by newly matured females
+    A[1,8] <- pOvl*pPrg*S_MA*0.5*S_pup # Offspring production by previously matured females
+    
+    # Add survival-maturation components
+    A[2,1] <- S_YOY # Young-of-the year surviving to next year
+    A[3,2] <- S_SA[1] # Age 1 immature subadults surviving to next year
+    
+    for(a in 3:5){ # Age 2-4 immature subadults...
+      A[a+1,a] <- S_SA[a-1]*(1-pMat[a]) # ... surviving to next year and remaining immature
+      A[7,a] <- S_SA[a-1]*pMat[a] # ... surviving to next year and maturing
+    }
+    
+    A[7,6] <- S_SA[5] # Age 5 immature subadults surviving to next year and maturing
+    A[8,7:8] <- S_MA # (Newly) mature individuals surviving to next year
+    
+    # Return matrix
+    return(A)
+    returnType(double(2))
+  }
+)
 
-hist(rlambda_max)
-hist(rlambda_mean)
+## Assemble posteriors for Nmin and various Rmax
+Ntot_min <- rep(NA, dim(out.mat)[1])
+rlambda_max <- rlambda_mean <- Ntot_min
+alambda_max <- alambda_mean <- Ntot_min
 
-# Extract asymptotic lambda for each posterior sample
-alambda <- out.mat[,'lambda_asym']
-hist(alambda)
+for(i in 1:length(Ntot_min)){
+  
+  # Minimum population size (multiplied by 2 to include both sexes)
+  Ntot_min[i] <- min(out.mat[i, paste0('Ntot[', Tmin:Tmax, ']')])*2
+  
+  # Maximum and mean realized population growth rates
+  rlambda_max[i]  <- max(out.mat[i, paste0('lambda_real[', Tmin:Tmax, ']')])
+  rlambda_mean[i]  <- mean(out.mat[i, paste0('lambda_real[', Tmin:Tmax, ']')])
 
+  # Maximum and mean asymptotic growth rate assuming no harvest
+  alambda_t <- rep(NA, length(Tmin:Tmax))
+  for(t in Tmin:Tmax){
+    A <- make.sealPM(S_YOY = exp(-out.mat[i, 'mN_YOY']),
+                     S_SA = exp(-out.mat[i, paste0('mN_SA[', 1:5, ']')]),
+                     S_MA = exp(-out.mat[i, 'mN_MA']),
+                     pMat = out.mat[i, paste0('pMat[', 1:6, ', ', t, ']')],
+                     pOvl = out.mat[i, 'pOvl'],
+                     pPrg = out.mat[i, 'pPrg'],
+                     S_pup = out.mat[i, paste0('S_pup[', t+1, ']')])
+    alambda_t[t-Tmin+1] <- as.numeric(eigen(A)$values[1])
+  }
+  alambda_max[i] <- max(alambda_t)
+  alambda_mean[i] <- mean(alambda_t)
+}
 
-# Extract the minimum population size across study period for each sample
-Nmin <- apply(out.mat[, Ntot.names]*2, 1, min) # Multiply by 2 to get up to full popualtion size
 
 # Calculate minimum population size for 2002 as used in the rudimentary PBR
 # NOTE: The "ideal" way to do this (according to refs in Nelson et al. 2019)
@@ -61,7 +113,7 @@ simN <- Isfj.Nsim(n = 1000000, N.est = N.est)
 Nmin.2002 <- unname(exp(quantile(log(simN), probs = 0.2)))
 
 
-## Calculation of overall PBR for different values of Fr
+## Make vector of different values of Fr
 Fr <- seq(0.1, 1.0, by = 0.1)
 
 
@@ -92,33 +144,38 @@ calc.PBR <- function(Nmin, lambda, Fr){
 }
 
 ## Using Rmax based on max(r_lambda)
-PBR1 <- calc.PBR(Nmin = Nmin, lambda = rlambda_max, Fr = Fr)
+PBR1 <- calc.PBR(Nmin = Ntot_min, lambda = rlambda_max, Fr = Fr)
 PBR1$Rmax_Source <- 'max(r_lambda)'
 
 ## Using Rmax based on mean(r_lambda)
-PBR2 <- calc.PBR(Nmin = Nmin, lambda = rlambda_mean, Fr = Fr)
+PBR2 <- calc.PBR(Nmin = Ntot_min, lambda = rlambda_mean, Fr = Fr)
 PBR2$Rmax_Source <- 'mean(r_lambda)'
 
-## Using Rmax based on a_lambda
-PBR3 <- calc.PBR(Nmin = Nmin, lambda = alambda, Fr = Fr)
-PBR3$Rmax_Source <- 'a_lambda'
+## Using Rmax based on max(a_lambda)
+PBR3 <- calc.PBR(Nmin = Ntot_min, lambda = alambda_max, Fr = Fr)
+PBR3$Rmax_Source <- 'max(a_lambda)'
+
+## Using Rmax based on max(a_lambda)
+PBR4 <- calc.PBR(Nmin = Ntot_min, lambda = alambda_mean, Fr = Fr)
+PBR4$Rmax_Source <- 'mean(a_lambda)'
+
 
 ## Combine data
-PBR.dataA <- rbind(PBR1, PBR2, PBR3)
-PBR.dataA$Rmax_Label <- dplyr::case_when(PBR.dataA$Rmax_Source == 'max(r_lambda)' ~ 'Realized growth rate (maximum)',
+PBR.dataA <- rbind(PBR1, PBR2, PBR3, PBR4)
+PBR.dataA$Rmax_Label <- dplyr::case_when(PBR.dataA$Rmax_Source == 'max(r_lambda)' ~ 'Realized growth rate (max)',
                                          PBR.dataA$Rmax_Source == 'mean(r_lambda)' ~ 'Realized growth rate (mean)',
-                                         PBR.dataA$Rmax_Source == 'a_lambda' ~ 'Asymptotic growth rate',)
-PBR.dataA$Rmax_Label <- factor(PBR.dataA$Rmax_Label, levels = c('Realized growth rate (maximum)', 'Realized growth rate (mean)', 'Asymptotic growth rate'))
+                                         PBR.dataA$Rmax_Source == 'max(a_lambda)' ~ 'Asymptotic growth rate (max)',
+                                         PBR.dataA$Rmax_Source == 'mean(a_lambda)' ~ 'Asymptotic growth rate (mean)',)
+PBR.dataA$Rmax_Label <- factor(PBR.dataA$Rmax_Label, levels = c('Realized growth rate (max)', 'Realized growth rate (mean)', 'Asymptotic growth rate (max)', 'Asymptotic growth rate (mean)'))
 
 ## Plot
-pdf('220125_IPMPBR_sampleNmin.pdf', width = 5, height = 8)
-#pdf('220125_IPMPBR_unknownSpup_sampleNmin.pdf', width = 5, height = 8)
+pdf('220721_IPMPBR_sampleNmin.pdf', width = 6.5, height = 5.5)
 ggplot(PBR.dataA, aes(x = PBR)) + 
   geom_density(aes(color = as.factor(Fr), fill = as.factor(Fr)), alpha = 0.15) + 
   scale_fill_viridis(discrete = T, option = 'E', name = 'Fr') + 
   scale_color_viridis(discrete = T, option = 'E', name = 'Fr') +
   geom_vline(xintercept = 0, linetype = 'dashed') +
-  facet_wrap(~Rmax_Label, ncol = 1, scale = 'free') + 
+  facet_wrap(~Rmax_Label, ncol = 2, scale = 'free') + 
   theme_bw() + theme(panel.grid = element_blank())
 dev.off()
 
@@ -127,33 +184,38 @@ dev.off()
 ####################################################
 
 ## Using Rmax based on max(r_lambda)
-PBR4 <- calc.PBR(Nmin = Nmin.2002, lambda = rlambda_max, Fr = Fr)
-PBR4$Rmax_Source <- 'max(r_lambda)'
+PBR5 <- calc.PBR(Nmin = Nmin.2002, lambda = rlambda_max, Fr = Fr)
+PBR5$Rmax_Source <- 'max(r_lambda)'
 
 ## Using Rmax based on mean(r_lambda)
-PBR5 <- calc.PBR(Nmin = Nmin.2002, lambda = rlambda_mean, Fr = Fr)
-PBR5$Rmax_Source <- 'mean(r_lambda)'
+PBR6 <- calc.PBR(Nmin = Nmin.2002, lambda = rlambda_mean, Fr = Fr)
+PBR6$Rmax_Source <- 'mean(r_lambda)'
 
-## Using Rmax based on a_lambda
-PBR6 <- calc.PBR(Nmin = Nmin.2002, lambda = alambda, Fr = Fr)
-PBR6$Rmax_Source <- 'a_lambda)'
+## Using Rmax based on max(a_lambda)
+PBR7 <- calc.PBR(Nmin = Nmin.2002, lambda = alambda_max, Fr = Fr)
+PBR7$Rmax_Source <- 'max(a_lambda)'
+
+## Using Rmax based on mean(a_lambda)
+PBR8 <- calc.PBR(Nmin = Nmin.2002, lambda = alambda_mean, Fr = Fr)
+PBR8$Rmax_Source <- 'mean(a_lambda)'
+
 
 ## Combine data
-PBR.dataB <- rbind(PBR4, PBR5, PBR6)
-PBR.dataB$Rmax_Label <- dplyr::case_when(PBR.dataB$Rmax_Source == 'max(r_lambda)' ~ 'Realized growth rate (maximum)',
+PBR.dataB <- rbind(PBR5, PBR6, PBR7, PBR8)
+PBR.dataB$Rmax_Label <- dplyr::case_when(PBR.dataB$Rmax_Source == 'max(r_lambda)' ~ 'Realized growth rate (max)',
                                          PBR.dataB$Rmax_Source == 'mean(r_lambda)' ~ 'Realized growth rate (mean)',
-                                         PBR.dataB$Rmax_Source == 'a_lambda' ~ 'Asymptotic growth rate',)
-PBR.dataB$Rmax_Label <- factor(PBR.dataB$Rmax_Label, levels = c('Realized growth rate (maximum)', 'Realized growth rate (mean)', 'Asymptotic growth rate'))
+                                         PBR.dataB$Rmax_Source == 'max(a_lambda)' ~ 'Asymptotic growth rate (max)',
+                                         PBR.dataB$Rmax_Source == 'mean(a_lambda)' ~ 'Asymptotic growth rate (mean)',)
+PBR.dataB$Rmax_Label <- factor(PBR.dataA$Rmax_Label, levels = c('Realized growth rate (max)', 'Realized growth rate (mean)', 'Asymptotic growth rate (max)', 'Asymptotic growth rate (mean)'))
 
 ## Plot
-pdf('220125_IPMPBR_aprioriNmin.pdf', width = 5, height = 8)
-#pdf('220125_IPMPBR_unknownSpup_aprioriNmin.pdf', width = 5, height = 8)
+pdf('220721_IPMPBR_aprioriNmin.pdf', width = 6.5, height = 5.5)
 ggplot(PBR.dataB, aes(x = PBR)) + 
   geom_density(aes(color = as.factor(Fr), fill = as.factor(Fr)), alpha = 0.15) + 
   scale_fill_viridis(discrete = T, option = 'E', name = 'Fr') + 
   scale_color_viridis(discrete = T, option = 'E', name = 'Fr') +
   geom_vline(xintercept = 0, linetype = 'dashed') +
-  facet_wrap(~Rmax_Label, ncol = 1, scale = 'free') + 
+  facet_wrap(~Rmax_Label, ncol = 2, scale = 'free') + 
   theme_bw() + theme(panel.grid = element_blank())
 dev.off()
 
@@ -163,17 +225,18 @@ dev.off()
 
 ## Assemble data
 Nmin.data <- data.frame(
-  Value = Nmin
+  Value = Ntot_min
 )
 
 lambda.data <- data.frame(
-  Parameter = rep(c('Realized growth rate (maximum)', 'Realized growth rate (mean)', 'Asymptotic growth rate'), each = length(rlambda_max)),
-  Value = c(rlambda_max, rlambda_mean, alambda)
+  Parameter = rep(c('Realized growth rate (max)', 'Realized growth rate (mean)', 'Asymptotic growth rate (max)', 'Asymptotic growth rate (mean)'), each = length(rlambda_max)),
+  Value = c(rlambda_max, rlambda_mean, alambda_max, alambda_mean)
 )
 
 ## Plot Nmin
 p1 <- ggplot(Nmin.data, aes(x = Value)) + 
   geom_density(color = 'grey40', fill = 'grey40', alpha = 0.5) + 
+  geom_vline(aes(xintercept = Nmin.2002), linetype = 'dashed', color = 'hotpink') + 
   ggtitle('A) Minimum population size') + 
   theme_bw() + theme(panel.grid = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
@@ -181,11 +244,11 @@ p1 <- ggplot(Nmin.data, aes(x = Value)) +
 p2 <- ggplot(lambda.data, aes(x = Value)) + 
   geom_density(aes(color = Parameter, fill = Parameter), alpha = 0.5) + 
   ggtitle('B) Population growth rates') + 
-  geom_vline(xintercept = 1, color = 'grey40', linetype = 'dashed') +
-  scale_color_manual(values = c('#8C085E', '#00A69D', 'orange')) +
-  scale_fill_manual(values = c('#8C085E', '#00A69D', 'orange')) +
+  geom_vline(xintercept = 1, color = 'grey40', linetype = 'dotted') +
+  scale_color_manual(values = c('turquoise4', 'turquoise3', 'slateblue4', 'slateblue2')) +
+  scale_fill_manual(values = c('turquoise4', 'turquoise3', 'slateblue4', 'slateblue2')) +
   theme_bw() + theme(panel.grid = element_blank(), legend.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
-pdf('220127_Lambda_Nmin_Posteriors.pdf', width = 9, height = 3)
+pdf('220721_Lambda_Nmin_Posteriors.pdf', width = 9, height = 3)
 grid.arrange(p1, p2, nrow = 1, widths = c(0.5, 1))
 dev.off()
