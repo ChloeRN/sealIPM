@@ -8,11 +8,11 @@ set.seed(mySeed)
 #################
 
 ## Set paths
-#DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
-DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
+DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
+#DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
 
-#CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
-CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
+CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
+#CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
 
 ## Load data
 load(paste0(DataPath, '220114_SealIPM_Data.RData'))
@@ -41,14 +41,14 @@ StableFuture <- TRUE
 #StableFuture <- FALSE
 
 # Harvest scenario
-#HarvestScen <- 'No change'
-HarvestScen <- 'Halved'
+HarvestScen <- 'No change'
+#HarvestScen <- 'Halved'
 #HarvestScen <- 'None'
 
 ## Set parameters that are fixed a priori (but may be varied)
 
 # Number of years to simulate model beyond data
-sim_extraYears <- 0
+sim_extraYears <- 30
 
 # Start and end years for population model
 sim_Tmin <- 2002 - 1981 + 1 
@@ -164,7 +164,6 @@ seal.constants <- list(
   
   p.idx = p.idx
 )
-
 
 ####################
 # NIMBLE FUNCTIONS #
@@ -696,9 +695,9 @@ testRun <- nimbleMCMC(code = seal.IPM,
                       samplesAsCodaMCMC = TRUE, setSeed = mySeed)
 
 
-#setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
-saveRDS(testRun, file = '220525_IPMtest_fSAD_iceSim_halfH.rds')
+setwd('/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM')
+saveRDS(testRun, file = '220718_IPMtest_fSAD_iceSim.rds')
 
-pdf('220525_IPMtest_fSAD_iceSim_halfH.pdf', height = 8, width = 11)
+pdf('220718_IPMtest_fSAD_iceSim.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
