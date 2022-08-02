@@ -728,3 +728,32 @@ saveRDS(testRun, file = '220719_IPMtest_fSAD&eHAD_iceSimTrend.rds')
 pdf('220719_IPMtest_fSAD&eHAD_iceSimTrend.pdf', height = 8, width = 11)
 plot(testRun)
 dev.off()
+
+#######################
+# POSTERIOR SUMMARIES #
+#######################
+
+## Load posterior samples
+post.samples <- readRDS('220719_IPMtest_fSAD&eHAD_iceSimTrend.rds')
+out.mat <- as.matrix(post.samples)
+
+## List parameters to include in posterior summaries table
+table.params <- c(
+  paste0('Mu.pMat[', 3:5, ']'), 'sigmaY.pMat',
+  'pOvl', 'pPrg',
+  'mN_YOY', paste0('mN_SA[', 1:5, ']'), 'mN_MA',
+  'mH_YOY[1]', paste0('mH_SA[', 1:5, ', 1]'), 'mH_MA[1]',
+  'S_YOY[1]', paste0('S_SA[', 1:5, ', 1]'), 'S_MA[1]',
+  'S_pup.ideal', 'env.ideal',
+  'estN.2002', paste0('SAD[', 1:8, ']')
+)
+
+## Assemble table with posterior summaries
+post.table <- data.frame(Parameter = table.params, Estimate = NA)
+
+for(i in 1:length(table.params)){
+  est <- out.mat[, table.params[i]]
+  post.table$Estimate[i] <- paste0(round(median(est), digits = 2), ' [', round(quantile(est, 0.025), digits = 2), ', ', round(quantile(est, 0.975), digits = 2), ']')
+}
+
+write.csv(post.table, file = '220725_PostSummaries.csv', row.names = FALSE)
