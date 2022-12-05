@@ -3,7 +3,7 @@ library(ggplot2)
 library(viridis)
 library(gridExtra)
 library(magrittr)
-
+library(nimble)
 
 ####################################
 # SETTING UP POSTERIOR PREDICTIONS #
