@@ -231,6 +231,11 @@ for(m in 1:length(out.mat)){
 ## Re-arrange factor levels
 ann.est$Model <- factor(ann.est$Model, levels = c('Unchanged', 'Half', 'None'))
 
+## Add full-text Parameter label
+ann.est$Label <- dplyr::case_when(ann.est$Parameter == "Ntot" ~ "Female population size",
+                                  ann.est$Parameter == "H" ~ "Number of females harvested",
+                                  ann.est$Parameter == "S_pup" ~ "Pup survival")
+
 ## Plot comparisons to pdf
 pdf('220721_ModelComparisonTime_Scenarios_CC0.pdf', width = 9, height = 6)
 ggplot(subset(ann.est, Environment == 'Stable')) + 
@@ -239,8 +244,15 @@ ggplot(subset(ann.est, Environment == 'Stable')) +
   geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_fill_manual(values = plotColors, name = 'Harvest') + 
-  facet_wrap(~Parameter, scales = 'free_y', ncol = 1) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = 'top')
+  facet_wrap(~Label, scales = 'free_y', ncol = 1) +
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.position = 'top',
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
 
 ggplot(subset(ann.est, Environment == 'Stable' & Year >= 2002)) + 
   geom_line(aes(x = Year, y = Median, color = Model)) + 
@@ -248,8 +260,15 @@ ggplot(subset(ann.est, Environment == 'Stable' & Year >= 2002)) +
   geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_fill_manual(values = plotColors, name = 'Harvest') + 
-  facet_wrap(~Parameter, scales = 'free_y', ncol = 1) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = 'top')
+  facet_wrap(~Label, scales = 'free_y', ncol = 1) +
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.position = 'top',
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
 dev.off()
 
 pdf('220721_ModelComparisonTime_Scenarios_CCT.pdf', width = 9, height = 6)
@@ -259,8 +278,15 @@ ggplot(subset(ann.est, Environment != 'Stable')) +
   geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_fill_manual(values = plotColors, name = 'Harvest') + 
-  facet_wrap(~Parameter, scales = 'free_y', ncol = 1) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = 'top')
+  facet_wrap(~Label, scales = 'free_y', ncol = 1) +
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.position = 'top',
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
 
 ggplot(subset(ann.est, Environment != 'Stable' & Year >= 2002)) + 
   geom_line(aes(x = Year, y = Median, color = Model)) + 
@@ -268,8 +294,16 @@ ggplot(subset(ann.est, Environment != 'Stable' & Year >= 2002)) +
   geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_fill_manual(values = plotColors, name = 'Harvest') + 
-  facet_wrap(~Parameter, scales = 'free_y', ncol = 1) +
-  theme_bw() + theme(panel.grid = element_blank(), legend.position = 'top')
+  facet_wrap(~Label, scales = 'free_y', ncol = 1) +
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.position = 'top',
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
+
 dev.off()
 
 
@@ -280,8 +314,14 @@ ggplot(subset(ann.est, Year >= 2002)) +
   geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_fill_manual(values = plotColors, name = 'Harvest') + 
-  facet_wrap(~Parameter, scales = 'free_y', ncol = 1) +
-  theme_bw() + theme(panel.grid = element_blank())
+  facet_wrap(~Label, scales = 'free_y', ncol = 1) +
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(),
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
 dev.off()
 
 ###########################################################
