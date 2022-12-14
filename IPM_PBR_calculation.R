@@ -168,6 +168,14 @@ PBR.dataA$Rmax_Label <- dplyr::case_when(PBR.dataA$Rmax_Source == 'max(r_lambda)
                                          PBR.dataA$Rmax_Source == 'mean(a_lambda)' ~ 'Asymptotic growth rate (mean)',)
 PBR.dataA$Rmax_Label <- factor(PBR.dataA$Rmax_Label, levels = c('Realized growth rate (max)', 'Realized growth rate (mean)', 'Asymptotic growth rate (max)', 'Asymptotic growth rate (mean)'))
 
+## Posterior summaries
+PBR.summaries <- PBR.dataA %>%
+  dplyr::group_by(Rmax_Label, Fr) %>%
+  dplyr::summarise(median = median(PBR),
+                   lCI = quantile(PBR, probs = 0.025),
+                   uCI = quantile(PBR, probs = 0.975), .groups = "keep")
+print(PBR.summaries, n = 50, digits = 2)
+
 ## Plot
 pdf('220721_IPMPBR_sampleNmin.pdf', width = 6.5, height = 5.5)
 ggplot(PBR.dataA, aes(x = PBR)) + 
