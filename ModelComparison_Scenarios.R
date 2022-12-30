@@ -212,15 +212,17 @@ for(m in 1:length(out.mat)){
       H.sum <- quantile(
         rowSums(post.mat[,paste0('H[',1:Amax, ', ',t,']')]), 
         probs = c(0.025, 0.5, 0.975))
+      lambda.sum <- quantile(post.mat[,paste0('lambda_real[',t,']')], probs = c(0.025, 0.5, 0.975))
     }else{
       H.sum <- rep(NA, 3)
+      lambda.sum <- rep(NA, 3)
     }
     
-    post.data <- data.frame(rbind(Ntot.sum, H.sum, Spup.sum))
+    post.data <- data.frame(rbind(Ntot.sum, lambda.sum, H.sum, Spup.sum))
     colnames(post.data) <- c('lCI', 'Median', 'uCI')
     rownames(post.data) <- NULL
     post.data$Year = t+1980
-    post.data$Parameter = c('Ntot', 'H', 'S_pup')
+    post.data$Parameter = c('Ntot', 'lambda', 'H', 'S_pup')
     post.data$Model <- ModelType[m]
     post.data$Environment <- Environment[m]
     
@@ -233,10 +235,29 @@ ann.est$Model <- factor(ann.est$Model, levels = c('Unchanged', 'Half', 'None'))
 
 ## Add full-text Parameter label
 ann.est$Label <- dplyr::case_when(ann.est$Parameter == "Ntot" ~ "Female population size",
+                                  ann.est$Parameter == "lambda" ~ "Realized population growth rate",
                                   ann.est$Parameter == "H" ~ "Number of females harvested",
                                   ann.est$Parameter == "S_pup" ~ "Pup survival")
 
-## Plot comparisons to pdf
+## Plot lambda comparisons to pdf
+pdf('221230_ModelComparisonTime_Scenarios_lambda.pdf', width = 9, height = 3)
+ggplot(subset(ann.est, Year >= 2002 & Parameter == "lambda")) + 
+  geom_line(aes(x = Year, y = Median, color = Model, linetype = Environment)) + 
+  geom_ribbon(aes(x = Year, ymin = lCI, ymax = uCI, fill = Model, linetype = Environment), alpha = 0.05) + 
+  geom_vline(aes(xintercept = 2020), color = 'grey60', linetype = 'dotted') + 
+  scale_color_manual(values = plotColors, name = 'Harvest') + 
+  scale_fill_manual(values = plotColors, name = 'Harvest') + 
+  ylab('Estimate') + 
+  theme_bw() + theme(panel.grid = element_blank(),
+                     strip.text = element_text(face = "bold", size = 12),
+                     axis.title = element_text(size = 12),
+                     axis.text = element_text(size = 11),
+                     legend.title = element_text(size = 12),
+                     legend.text = element_text(size = 11))
+dev.off()
+
+
+## Plot comparisons (Ntot, H, S_pup) to pdf
 pdf('220721_ModelComparisonTime_Scenarios_CC0.pdf', width = 9, height = 6)
 ggplot(subset(ann.est, Environment == 'Stable')) + 
   geom_line(aes(x = Year, y = Median, color = Model)) + 
