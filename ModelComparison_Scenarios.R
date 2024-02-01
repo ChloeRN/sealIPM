@@ -360,7 +360,7 @@ ann.sub <- subset(ann.est, Year %in% c(2020, 2030, 2040, 2050))
 ## Forestplot for population size
 pdf('Plots/CombScenarios_N.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'Ntot')) + 
-  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
+  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment, linetype = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_shape_manual(values = c(19,1)) + 
   scale_y_continuous(breaks = seq(100, 1400, by = 200)) + 
@@ -376,7 +376,7 @@ dev.off()
 ## Forestplot for pup survival
 pdf('Plots/CombScenarios_S_pup.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'S_pup')) + 
-  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
+  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment, linetype = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_shape_manual(values = c(19,1)) + 
   scale_y_continuous(breaks = seq(0, 1, by = 0.1)) + 
@@ -392,7 +392,7 @@ dev.off()
 ## Forestplot for harvest
 pdf('Plots/CombScenarios_H.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'H')) + 
-  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
+  geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment, linetype = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
   scale_shape_manual(values = c(19,1)) + 
   scale_y_continuous(breaks = seq(0, 30, by = 5)) + 
