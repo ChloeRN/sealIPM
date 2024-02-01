@@ -10,7 +10,7 @@ library(nimble)
 ####################################
 
 ## Load posterior samples from model run
-testRun <- readRDS('220718_IPMtest_fSAD&eHAD_iceSim.rds')
+testRun <- readRDS('IPMtest_fSAD&eHAD_iceSim.rds')
 out.mat <- as.matrix(testRun)
 
 ## Set time-span to consider
@@ -116,6 +116,10 @@ Nmin.2002 <- unname(exp(quantile(log(simN), probs = 0.2)))
 ## Make vector of different values of Fr
 Fr <- seq(0.1, 1.0, by = 0.1)
 
+## Make plotting directory if it does not exist
+if(!file.exists("Plots")){
+  dir.create("Plots")
+}
 
 #######################################
 # PBR CALCULATION - Nmin from samples #
@@ -177,7 +181,7 @@ PBR.summaries <- PBR.dataA %>%
 print(PBR.summaries, n = 50, digits = 2)
 
 ## Plot
-pdf('220721_IPMPBR_sampleNmin.pdf', width = 6.5, height = 5.5)
+pdf('Plots/IPMPBR_sampleNmin.pdf', width = 6.5, height = 5.5)
 ggplot(PBR.dataA, aes(x = PBR)) + 
   geom_density(aes(color = as.factor(Fr), fill = as.factor(Fr)), alpha = 0.15) + 
   scale_fill_viridis(discrete = T, option = 'E', name = 'Fr') + 
@@ -217,7 +221,7 @@ PBR.dataB$Rmax_Label <- dplyr::case_when(PBR.dataB$Rmax_Source == 'max(r_lambda)
 PBR.dataB$Rmax_Label <- factor(PBR.dataA$Rmax_Label, levels = c('Realized growth rate (max)', 'Realized growth rate (mean)', 'Asymptotic growth rate (max)', 'Asymptotic growth rate (mean)'))
 
 ## Plot
-pdf('220721_IPMPBR_aprioriNmin.pdf', width = 6.5, height = 5.5)
+pdf('Plots/IPMPBR_aprioriNmin.pdf', width = 6.5, height = 5.5)
 ggplot(PBR.dataB, aes(x = PBR)) + 
   geom_density(aes(color = as.factor(Fr), fill = as.factor(Fr)), alpha = 0.15) + 
   scale_fill_viridis(discrete = T, option = 'E', name = 'Fr') + 
@@ -257,6 +261,6 @@ p2 <- ggplot(lambda.data, aes(x = Value)) +
   scale_fill_manual(values = c('turquoise4', 'turquoise3', 'slateblue4', 'slateblue2')) +
   theme_bw() + theme(panel.grid = element_blank(), legend.title = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
 
-pdf('220721_Lambda_Nmin_Posteriors.pdf', width = 9, height = 3)
+pdf('Lambda_Nmin_Posteriors.pdf', width = 9, height = 3)
 grid.arrange(p1, p2, nrow = 1, widths = c(0.5, 1))
 dev.off()

@@ -10,17 +10,13 @@ set.seed(mySeed)
 #################
 
 ## Set paths
-#DataPath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/Code/'
-DataPath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/Code/'
-
-#CodePath <- '/data/P-Prosjekter/41201625_sustainable_harvesting_of_seals_in_svalbard/SealIPM/'
-CodePath <- 'C:/Users/chloe.nater/OneDrive - NINA/Documents/Projects/SealHarvest/sealIPM/'
+DataPath <- 'InputData/'
 
 ## Load data
-load(paste0(DataPath, '220114_SealIPM_Data.RData'))
-IceData <- readRDS(paste0(DataPath, '220509_SealIPM_IceData.rds'))
+SealDataF_mat <- readRDS(paste0(DataPath, 'SealIPM_DemoData.rds'))
+IceData <- readRDS(paste0(DataPath, 'SealIPM_IceData.rds'))
 
-# Pup survival
+## Pup survival
 Mu.S_pup.ideal <- 0.80 # pup survival under ideal conditions
 sdlog.m_pup <- 0.20 # standard deviation of uncertainty in pup mortality hazard rate (on the log scale)
 
@@ -134,7 +130,12 @@ p.S_pup <- ggplot(Sim.S_pup) +
   theme(panel.grid.minor = element_blank())
 p.S_pup
 
+## Make plotting directory if it does not exist
+if(!file.exists("Plots")){
+  dir.create("Plots")
+}
+
 ## Print to pdf
-pdf('S_pup&SeaIce.pdf', width = 6, height = 6)
+pdf('Plots/S_pup&SeaIce.pdf', width = 6, height = 6)
 grid.arrange(p.ice, p.S_pup, ncol = 1, heights = c(0.6, 1))
 dev.off()

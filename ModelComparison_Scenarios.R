@@ -9,13 +9,13 @@ library(ggstance)
 #################################
 
 ## Load posterior samples from models of interest
-sam.mod_uH <- as.matrix(readRDS('220718_IPMtest_fSAD&eHAD_iceSim.rds'))
-sam.mod_hH <- as.matrix(readRDS('220719_IPMtest_fSAD&eHAD_halfH_iceSim.rds'))
-sam.mod_nH <- as.matrix(readRDS('220719_IPMtest_fSAD&eHAD_noH_iceSim.rds'))
+sam.mod_uH <- as.matrix(readRDS('IPMtest_fSAD&eHAD_iceSim.rds'))
+sam.mod_hH <- as.matrix(readRDS('IPMtest_fSAD&eHAD_halfH_iceSim.rds'))
+sam.mod_nH <- as.matrix(readRDS('IPMtest_fSAD&eHAD_noH_iceSim.rds'))
 
-sam.mod_uH_T <- as.matrix(readRDS('220719_IPMtest_fSAD&eHAD_iceSimTrend.rds'))
-sam.mod_hH_T <- as.matrix(readRDS('220719_IPMtest_fSAD&eHAD_halfH_iceSimTrend.rds'))
-sam.mod_nH_T <- as.matrix(readRDS('220719_IPMtest_fSAD&eHAD_noH_iceSimTrend.rds'))
+sam.mod_uH_T <- as.matrix(readRDS('IPMtest_fSAD&eHAD_iceSimTrend.rds'))
+sam.mod_hH_T <- as.matrix(readRDS('IPMtest_fSAD&eHAD_halfH_iceSimTrend.rds'))
+sam.mod_nH_T <- as.matrix(readRDS('IPMtest_fSAD&eHAD_noH_iceSimTrend.rds'))
 
 
 ## Retain only parameters required for plotting
@@ -89,8 +89,13 @@ SAD.params <- paste0('SAD[', 1:8, ']')
 #plotColors <- rev(c('#7CCBA2', '#FCDE9C', '#F0746E'))
 plotColors <- inferno(10)[c(2,5,8)]
 
+## Make plotting directory if it does not exist
+if(!file.exists("Plots")){
+  dir.create("Plots")
+}
+
 ## Plot comparisons to pdf
-pdf('220721_ModelComparison_Scenarios_CC0.pdf', width = 11, height = 8)
+pdf('Plots/ModelComparison_Scenarios_CC0.pdf', width = 11, height = 8)
 
 # Survival parameters
 ggplot(subset(data.comb, Environment == 'Stable' & Parameter%in%Surv.params), aes(x = Estimate)) + 
@@ -131,7 +136,7 @@ ggplot(subset(data.comb, Environment == 'Stable' & Parameter%in%SAD.params), aes
 dev.off()
 
 
-pdf('220721_ModelComparison_Scenarios_CCT.pdf', width = 11, height = 8)
+pdf('Plots/ModelComparison_Scenarios_CCT.pdf', width = 11, height = 8)
 
 # Survival parameters
 ggplot(subset(data.comb, Environment != 'Stable' & Parameter%in%Surv.params), aes(x = Estimate)) + 
@@ -240,7 +245,7 @@ ann.est$Label <- dplyr::case_when(ann.est$Parameter == "Ntot" ~ "Female populati
                                   ann.est$Parameter == "S_pup" ~ "Pup survival")
 
 ## Plot lambda comparisons to pdf
-pdf('221230_ModelComparisonTime_Scenarios_lambda.pdf', width = 9, height = 3)
+pdf('Plots/ModelComparisonTime_Scenarios_lambda.pdf', width = 9, height = 3)
 ggplot(subset(ann.est, Year >= 2002 & Parameter == "lambda")) + 
   geom_line(aes(x = Year, y = Median, color = Model, linetype = Environment)) + 
   geom_ribbon(aes(x = Year, ymin = lCI, ymax = uCI, fill = Model, linetype = Environment), alpha = 0.05) + 
@@ -258,7 +263,7 @@ dev.off()
 
 
 ## Plot comparisons (Ntot, H, S_pup) to pdf
-pdf('220721_ModelComparisonTime_Scenarios_CC0.pdf', width = 9, height = 6)
+pdf('Plots/ModelComparisonTime_Scenarios_CC0.pdf', width = 9, height = 6)
 ggplot(subset(ann.est, Environment == 'Stable')) + 
   geom_line(aes(x = Year, y = Median, color = Model)) + 
   geom_ribbon(aes(x = Year, ymin = lCI, ymax = uCI, fill = Model), alpha = 0.1) + 
@@ -292,7 +297,7 @@ ggplot(subset(ann.est, Environment == 'Stable' & Year >= 2002)) +
                      legend.text = element_text(size = 11))
 dev.off()
 
-pdf('220721_ModelComparisonTime_Scenarios_CCT.pdf', width = 9, height = 6)
+pdf('Plots/ModelComparisonTime_Scenarios_CCT.pdf', width = 9, height = 6)
 ggplot(subset(ann.est, Environment != 'Stable')) + 
   geom_line(aes(x = Year, y = Median, color = Model)) + 
   geom_ribbon(aes(x = Year, ymin = lCI, ymax = uCI, fill = Model), alpha = 0.1) + 
@@ -328,7 +333,7 @@ ggplot(subset(ann.est, Environment != 'Stable' & Year >= 2002)) +
 dev.off()
 
 
-pdf('220721_ModelComparisonTime_Scenarios_all.pdf', width = 9, height = 6)
+pdf('Plots/ModelComparisonTime_Scenarios_all.pdf', width = 9, height = 6)
 ggplot(subset(ann.est, Year >= 2002)) + 
   geom_line(aes(x = Year, y = Median, color = Model, linetype = Environment)) + 
   geom_ribbon(aes(x = Year, ymin = lCI, ymax = uCI, fill = Model, linetype = Environment), alpha = 0.05) + 
@@ -353,7 +358,7 @@ dev.off()
 ann.sub <- subset(ann.est, Year %in% c(2020, 2030, 2040, 2050))
 
 ## Forestplot for population size
-pdf('220722_CombScenarios_N.pdf', width = 6, height = 3)
+pdf('Plots/CombScenarios_N.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'Ntot')) + 
   geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
@@ -369,7 +374,7 @@ ggplot(subset(ann.sub, Parameter == 'Ntot')) +
 dev.off()
 
 ## Forestplot for pup survival
-pdf('220722_CombScenarios_S_pup.pdf', width = 6, height = 3)
+pdf('Plots/CombScenarios_S_pup.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'S_pup')) + 
   geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 
@@ -385,7 +390,7 @@ ggplot(subset(ann.sub, Parameter == 'S_pup')) +
 dev.off()
 
 ## Forestplot for harvest
-pdf('220722_CombScenarios_H.pdf', width = 6, height = 3)
+pdf('Plots/CombScenarios_H.pdf', width = 6, height = 3)
 ggplot(subset(ann.sub, Parameter == 'H')) + 
   geom_pointrange(aes(x = Model, y = Median, ymin = lCI, ymax = uCI, colour = Model, shape = Environment), size = 0.3, fatten = 4, position = position_dodge(width = 0.5)) + 
   scale_color_manual(values = plotColors, name = 'Harvest') + 

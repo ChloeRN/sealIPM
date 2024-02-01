@@ -68,9 +68,13 @@ Fr <- seq(Fr_llim, Fr_ulim, length.out = Fr_n)
 ## Calculate PBR value matrix
 PBR.mat <- calc.PBR(Nmin, Rmax, Fr)
 
+## Make plotting directory if it does not exist
+if(!file.exists("Plots")){
+  dir.create("Plots")
+}
 
 ## Plot PBR heatmap
-pdf('220715_RudimentaryPBR.pdf', width = 7, height = 6)
+pdf('Plots/RudimentaryPBR.pdf', width = 7, height = 6)
 #par(mar=c(5.1,5.1,4.1,2.1))
 image.plot(PBR.mat, col = cividis(100), main = 'PBR', xlab = 'Fr', ylab = 'Rmax', xaxt= "n", yaxt= "n", cex.lab = 1.3, cex.main = 1.5, axis.args = list(cex.axis = 1.2))
 axis(1, at = seq(0, 1, length.out = 6), labels = seq(0, 1, length.out = 6), cex.axis = 1.2)
