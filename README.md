@@ -26,7 +26,7 @@ The following table gives an overview over each script in the repository, includ
 
 ## Underlying data
 
-The analyses require a set of input data (RDS files) for running. These will be made publicly available through OSF once the manuscript associated with this work has been accepted for publication. In the meantime, the input data can be requested directly by emailing me: [chloe.nater\@nina.no](mailto:chloe.nater@nina.no){.email}
+The analyses require a set of input data (RDS files) for running. These are publicly available through OSF: <https://osf.io/mtyu3/> 
 
 The data files underlying the main analyses are:
 
