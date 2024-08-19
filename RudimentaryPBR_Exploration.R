@@ -76,9 +76,10 @@ if(!file.exists("Plots")){
 ## Plot PBR heatmap
 pdf('Plots/RudimentaryPBR.pdf', width = 7, height = 6)
 #par(mar=c(5.1,5.1,4.1,2.1))
-image.plot(PBR.mat, col = cividis(100), main = 'PBR', xlab = 'Fr', ylab = 'Rmax', xaxt= "n", yaxt= "n", cex.lab = 1.3, cex.main = 1.5, axis.args = list(cex.axis = 1.2))
+image.plot(PBR.mat, col = cividis(100), main = 'PBR', xlab = 'Fr', ylab = "", xaxt= "n", yaxt= "n", cex.lab = 1.3, cex.main = 1.5, axis.args = list(cex.axis = 1.2))
 axis(1, at = seq(0, 1, length.out = 6), labels = seq(0, 1, length.out = 6), cex.axis = 1.2)
 axis(2, at = seq(0, 1, length.out = 6), labels = round(seq(0, Rmax_ulim, length.out = 6), digits = 2), cex.axis = 1.2)
 contour(PBR.mat, add = TRUE, levels = c(10, 20, 30, 50, 100, 200, 300), col = 'white', labcex = 1, method = 'edge', lty = 1, crt = 90, drawlabels = F)
 abline(h = 0.5, col = 'skyblue1', lty = 3, lwd = 1.5)
+title(ylab= expression('R'[max]), line = 2.5, cex.lab = 1.3)
 dev.off()

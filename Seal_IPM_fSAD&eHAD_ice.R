@@ -358,8 +358,7 @@ seal.IPM <- nimbleCode({
     }
     
     nMatA[t+1] <- sum(Mat_SubA[1:(SA_Amax+1), t+1])
-    # NOTE: Double-check what happens with the subadults in the last age class that HAVE TO mature
-    
+
     ## Surviving age 1-5 (2-6) subadults remaining immature
     SubA[2:SA_Amax, t+1] <- Surv_SubA[2:SA_Amax, t+1] - Mat_SubA[2:SA_Amax, t+1]
   
